@@ -1,2 +1,3 @@
 # kubectl-cp
-An easy tool to copy files to/from containers running on Kubernetes
+
+An easy way to copy files from/to containers running on Kubernetes
