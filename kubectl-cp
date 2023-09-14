@@ -1,0 +1,52 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+---
+name: kubectl-cp
+description: An easy way to copy files to/from containers running on Kubernetes
+website: https://github.com/marcio-pessoa/kubectl-cp
+"""
+
+import argparse
+
+
+class KubectlCP():
+    """ KubectlCP class """
+
+    def __init__(self):
+        parser = argparse.ArgumentParser(
+            prog='kubectl-cp',
+            formatter_class=argparse.RawDescriptionHelpFormatter,
+            add_help=True,
+            usage=('kubectl-cp [options] [<args>]\n\n'),
+            epilog=(
+                'examples:\n'
+                '  kubectl-cp src dst\n'
+                '  kubectl-cp src dst\n'
+                '\n'
+                'Copyleft (c) 2023-2023 Marcio Pessoa\n'
+                'License: GPLv3\n'
+                'Website: https://github.com/marcio-pessoa/kubectl-cp\n'
+                'Contact: Marcio Pessoa <marcio.pessoa@gmail.com>\n'
+            ),
+        )
+        parser.add_argument(
+            '-V', '--version',
+            action='version',
+            help='show version information and exit',
+            version=(
+                f'MArcade {self.__version__} {self.__date__}'
+            ),
+        )
+
+        args = parser.parse_args(sys.argv[1:2])
+        if not hasattr(self, args.game):
+            print('Unrecognized command')
+            parser.print_help()
+            sys.exit(True)
+
+        getattr(self, args.game)()
+
+
+if __name__ == '__main__':
+    KubectlCP()
