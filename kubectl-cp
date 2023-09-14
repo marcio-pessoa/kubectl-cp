@@ -8,10 +8,14 @@ website: https://github.com/marcio-pessoa/kubectl-cp
 """
 
 import argparse
+import sys
 
 
 class KubectlCP():
     """ KubectlCP class """
+
+    __version__ = '0.1.0'
+    __date__ = '2023-09-15'
 
     def __init__(self):
         parser = argparse.ArgumentParser(
@@ -35,7 +39,7 @@ class KubectlCP():
             action='version',
             help='show version information and exit',
             version=(
-                f'MArcade {self.__version__} {self.__date__}'
+                f'kubectl-cp {self.__version__} {self.__date__}'
             ),
         )
 
