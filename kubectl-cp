@@ -4,12 +4,14 @@
 """
 ---
 name: kubectl-cp
-description: An easy way to copy files to/from containers running on Kubernetes
+description: An easy way to copy files from/to containers running on Kubernetes
 website: https://github.com/marcio-pessoa/kubectl-cp
 """
 
 import argparse
 import sys
+import subprocess
+import shlex
 
 
 class KubectlCP():
@@ -51,6 +53,14 @@ class KubectlCP():
             sys.exit(True)
 
         getattr(self, args.game)()
+
+    def _from_container_to_localhost(self, container, file_name, kubectl_args):
+        """ Invasion """
+        cmd = (f'kubectl exec -i {kubectl_args}'
+               f'{container} -- cat {file_name} > {file_name}')
+        result = subprocess.run(shlex.split(cmd), shell=False, check=True)
+
+        return result
 
 
 if __name__ == '__main__':
