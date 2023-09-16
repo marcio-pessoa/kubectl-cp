@@ -9,9 +9,9 @@ website: https://github.com/marcio-pessoa/kubectl-cp
 """
 
 import argparse
-import sys
-import subprocess
+import os
 import shlex
+import subprocess
 
 
 class KubectlCP():
@@ -23,9 +23,12 @@ class KubectlCP():
     def __init__(self):
         parser = argparse.ArgumentParser(
             prog='kubectl-cp',
+            description=(
+                'An easy way to copy files from/to containers running on '
+                'Kubernetes'
+            ),
             formatter_class=argparse.RawDescriptionHelpFormatter,
             add_help=True,
-            usage=('kubectl-cp [options] [<args>]\n\n'),
             epilog=(
                 'examples:\n'
                 '  kubectl-cp src dst\n'
@@ -46,21 +49,56 @@ class KubectlCP():
             ),
         )
 
-        args = parser.parse_args(sys.argv[1:2])
-        if not hasattr(self, args.game):
-            print('Unrecognized command')
-            parser.print_help()
-            sys.exit(True)
+        parser.add_argument(
+            'src_file',
+            help='Source file')
+        parser.add_argument(
+            'dst_file',
+            help='Destination file')
+        parser.add_argument(
+            '-a', '--arguments',
+            help='kubectl arguments'
+        )
 
-        getattr(self, args.game)()
+        args = parser.parse_args()
+        print(
+            f'src: {args.src_file}\n'
+            f'dst: {args.dst_file}\n'
+            f'arguments: {args.arguments}\n'
+        )
 
-    def _from_container_to_localhost(self, container, file_name, kubectl_args):
-        """ Invasion """
-        cmd = (f'kubectl exec -i {kubectl_args}'
-               f'{container} -- cat {file_name} > {file_name}')
-        result = subprocess.run(shlex.split(cmd), shell=False, check=True)
+        self.from_container_to_localhost(
+            args.src_file, args.dst_file, args.arguments)
+
+    def from_container_to_localhost(self, src_file, dst_file, kubectl_args):
+        """ Copy a file from crontainer to localhost """
+        if dst_file == '.':
+            dst_file = os.path.basename(src_file)
+
+        cmd = (f'kubectl exec -i {kubectl_args} '
+               f'-- cat {src_file}')
+        result = subprocess.check_output(shlex.split(cmd), shell=False)
+        save_file(dst_file, result)
 
         return result
+
+    def from_localhost_to_container(self):
+        """ Copy a file from localhost to container """
+        return
+
+
+def save_file(file_path: str, content: bytes) -> bool:
+    """ Save content to file
+
+    Args:
+        file_path (str): _description_
+        content (bytes): _description_
+
+    Returns:
+        bool: _description_
+    """
+    with open(file_path, 'wb') as f:
+        f.write(content)
 
 
 if __name__ == '__main__':
