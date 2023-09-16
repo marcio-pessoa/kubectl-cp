@@ -21,6 +21,8 @@ class KubectlCP():
     __date__ = '2023-09-15'
 
     def __init__(self):
+        self.__verbose = False
+
         parser = argparse.ArgumentParser(
             prog='kubectl-cp',
             description=(
@@ -48,6 +50,11 @@ class KubectlCP():
                 f'kubectl-cp {self.__version__} {self.__date__}'
             ),
         )
+        parser.add_argument(
+            '-v', '--verbose',
+            help='Enable verbose output',
+            action='store_true'
+        )
 
         parser.add_argument(
             'src_file',
@@ -61,14 +68,18 @@ class KubectlCP():
         )
 
         args = parser.parse_args()
-        print(
-            f'src: {args.src_file}\n'
-            f'dst: {args.dst_file}\n'
-            f'arguments: {args.arguments}\n'
-        )
+        if args.verbose:
+            self.__verbose = True
+            print(f'source: {args.src_file}')
+            print(f'destination: {args.dst_file}')
+            print(f'arguments: {args.arguments}')
 
         self.from_container_to_localhost(
             args.src_file, args.dst_file, args.arguments)
+
+    def _verbose(self, message):
+        if self.__verbose:
+            print(message)
 
     def from_container_to_localhost(self, src_file, dst_file, kubectl_args):
         """ Copy a file from crontainer to localhost """
