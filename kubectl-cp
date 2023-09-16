@@ -70,9 +70,10 @@ class KubectlCP():
         args = parser.parse_args()
         if args.verbose:
             self.__verbose = True
-            print(f'source: {args.src_file}')
-            print(f'destination: {args.dst_file}')
-            print(f'arguments: {args.arguments}')
+
+        self._verbose(f'source: {args.src_file}')
+        self._verbose(f'destination: {args.dst_file}')
+        self._verbose(f'arguments: {args.arguments}')
 
         self.from_container_to_localhost(
             args.src_file, args.dst_file, args.arguments)
