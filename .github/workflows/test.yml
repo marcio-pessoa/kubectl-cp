@@ -58,7 +58,7 @@ jobs:
           pip install pylint
       - name: Code analysis with pylint
         run: |
-          pylint $(find . -name "*.py")
+          pylint kubectl-cp
   unittest:
     runs-on: ubuntu-latest
     strategy:
