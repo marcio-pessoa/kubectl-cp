@@ -20,12 +20,12 @@ class Direction(Enum):
     """_summary_
 
     Args:
-        Enum (_type_): _description_
+        Enum (int): _description_
     """
     unknown = 0
     download = 1
     upload = 2
-    invalid = 3
+    invalid = 5
 
 
 class KubectlCP():
@@ -73,6 +73,11 @@ class KubectlCP():
             action='store_true'
         )
         parser.add_argument(
+            '-r', '--recursive',
+            help='Recursively copy directories',
+            action='store_true'
+        )
+        parser.add_argument(
             'src_file',
             help='Source file')
         parser.add_argument(
@@ -95,16 +100,26 @@ class KubectlCP():
         self._verbose(f'destination: {self.__dst_file}')
         self._verbose(f'arguments: {args.arguments}')
 
-        if direction == Direction.download:
+        if direction == Direction.download and not args.recursive:
             self.from_container_to_localhost(
                 self.__container, self.__src_file, self.__dst_file,
                 args.arguments
             )
-        elif direction == Direction.upload:
+        elif direction == Direction.upload and not args.recursive:
             self.from_localhost_to_container(
                 self.__container, self.__src_file, self.__dst_file,
                 args.arguments
             )
+        elif direction == Direction.download and args.recursive:
+            self.from_container_directory_to_localhost(
+                self.__container, self.__src_file, self.__dst_file,
+                args.arguments
+            )
+        # elif direction == Direction.upload and args.recursive:
+        #     self.from_localhost_to_container(
+        #         self.__container, self.__src_file, self.__dst_file,
+        #         args.arguments
+        #     )
         else:
             print('Invalid input.')
             sys.exit(1)
@@ -113,19 +128,19 @@ class KubectlCP():
         if self.__verbose:
             print(message)
 
-    def _detect_direction(self, src_file, dst_file):
+    def _detect_direction(self, src_path, dst_path):
         direction = Direction.unknown
 
-        if len(_split_container_and_file(src_file)) > 1:
+        if len(_split_container_and_file(src_path)) > 1:
             direction = Direction.download
-            self.__container = _split_container_and_file(src_file)[0]
-            self.__src_file = _split_container_and_file(src_file)[1]
-            self.__dst_file = dst_file
-        elif len(_split_container_and_file(dst_file)) > 1:
+            self.__container = _split_container_and_file(src_path)[0]
+            self.__src_file = _split_container_and_file(src_path)[1]
+            self.__dst_file = dst_path
+        elif len(_split_container_and_file(dst_path)) > 1:
             direction = Direction.upload
-            self.__container = _split_container_and_file(dst_file)[0]
-            self.__src_file = src_file
-            self.__dst_file = _split_container_and_file(dst_file)[1]
+            self.__container = _split_container_and_file(dst_path)[0]
+            self.__src_file = src_path
+            self.__dst_file = _split_container_and_file(dst_path)[1]
         else:
             direction = Direction.invalid
 
@@ -133,14 +148,14 @@ class KubectlCP():
 
     def from_container_to_localhost(self, container: str,
                                     src_file: str, dst_file: str,
-                                    kubectl_args):
+                                    kubectl_args: str):
         """ Copy a file from container to localhost
 
         Args:
-            container (str): _description_
-            src_file (str): _description_
-            dst_file (str): _description_
-            kubectl_args (str): _description_
+            container (str): Container name
+            src_file (str): Source file
+            dst_file (str): Destination file
+            kubectl_args (str): kubectl arguments
 
         Returns:
             _type_: _description_
@@ -164,10 +179,10 @@ class KubectlCP():
         """ Copy a file from localhost to container
 
         Args:
-            container (str): _description_
-            src_file (str): _description_
-            dst_file (str): _description_
-            kubectl_args (str): _description_
+            container (str): Container name
+            src_file (str): Source file
+            dst_file (str): Destination file
+            kubectl_args (str): kubectl arguments
 
         Returns:
             _type_: _description_
@@ -185,6 +200,41 @@ class KubectlCP():
         result = subprocess.run(tokenized, check=False, capture_output=False)
 
         return result
+
+    def from_container_directory_to_localhost(self, container: str,
+                                              src_dir: str, dst_dir: str,
+                                              kubectl_args: str) -> bool:
+        """_summary_
+
+        Args:
+            container (str): Container name
+            src_dir (str): Source directory
+            dst_dir (str): Destination directory
+            kubectl_args (str): kubectl arguments
+
+        Returns:
+            bool: _description_
+        """
+        cmd = (f'kubectl exec -i {kubectl_args} '
+               f'-c {container} '
+               f'-- sh -c "ls -1dR {src_dir}/*"')
+        self._verbose(cmd)
+
+        try:
+            result = subprocess.run(shlex.split(cmd),
+                                    check=True, capture_output=True)
+        except subprocess.CalledProcessError:
+            print('Failed to read directory')
+            sys.exit(True)
+
+        files = result.stdout.decode().split("\n")
+        print(files)
+
+        # for file in files:
+        #     self.from_container_to_localhost(
+        #         container, file, '.', kubectl_args)
+
+        return False
 
 
 def _read_file(file_path: str) -> str:
