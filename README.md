@@ -11,3 +11,9 @@ Theres no dependencies needed on container side, batteries included.
 ``` sh
 kubectl-cp -a '-n iam deployment/keycloak' /tmp/opa .
 ```
+
+### From localhost to container
+
+``` sh
+kubectl-cp -a '-n iam deployment/keycloak' source_file.txt /tmp/out_file.txt
+```
