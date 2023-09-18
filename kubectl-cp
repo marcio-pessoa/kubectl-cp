@@ -178,7 +178,7 @@ class KubectlCP():
         cmd = ('kubectl exec '
                f'-i {kubectl_args} '
                f'-c {container} '
-               f'-- echo {content} > {dst_file}')
+               f'-- sh -c "echo \'{content.decode()}\' | tee {dst_file}"')
         self._verbose(f'command: {cmd}')
         tokenized = shlex.split(cmd)
         self._verbose(f'tokenized: {tokenized}')
