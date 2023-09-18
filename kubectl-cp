@@ -41,8 +41,8 @@ class FileSystem(Enum):
     symbolic_link = 4
 
 
-class KubectlCP():
-    """ KubectlCP class """
+class Main():
+    """ Main class """
 
     __version__ = '0.1.0'
     __date__ = '2023-09-15'
@@ -102,8 +102,7 @@ class KubectlCP():
         )
 
         args = parser.parse_args()
-        if args.verbose:
-            self.__verbose = True
+        self.__verbose = args.verbose
 
         direction = self._detect_direction(args.src_path, args.dst_path)
 
@@ -161,7 +160,7 @@ class KubectlCP():
 
     def from_container_to_localhost(self, container: str,
                                     src_path: str, dst_path: str,
-                                    kubectl_args: str):
+                                    kubectl_args: str) -> bool:
         """ Copy a file from container to localhost
 
         Args:
@@ -171,7 +170,7 @@ class KubectlCP():
             kubectl_args (str): kubectl arguments
 
         Returns:
-            _type_: _description_
+            bool: False on OK
         """
         if dst_path == '.':
             dst_path = os.path.basename(src_path)
@@ -189,17 +188,10 @@ class KubectlCP():
         except subprocess.CalledProcessError:
             file_type = FileSystem.directory
 
-        print(file_type.name)
         if file_type == FileSystem.file:
             _save_file(dst_path, result.stdout)
         elif file_type == FileSystem.directory:
-            try:
-                os.mkdir(dst_path)
-            except FileExistsError:
-                print(f'Directory {dst_path} already exists.')
-                sys.exit(True)
-
-        # return result
+            _create_directory(dst_path)
 
     def from_localhost_to_container(self, container: str,
                                     src_path: str, dst_path: str,
@@ -256,12 +248,10 @@ class KubectlCP():
             sys.exit(True)
 
         files = result.stdout.decode().split("\n")
-        print(files)
+        files = [x for x in files if x != '']
+        self._verbose(f'File list: {files}')
 
         for file in files:
-            if file == '':
-                continue
-
             self.from_container_to_localhost(
                 container, file, dst_dir, kubectl_args)
 
@@ -304,9 +294,22 @@ def _save_file(file_path: str, content: bytes) -> bool:
     return False
 
 
+def _create_directory(dst_path: str):
+    """ Create directory
+
+    Args:
+        dst_path (str): Directory name
+    """
+    try:
+        os.mkdir(dst_path)
+    except FileExistsError:
+        print(f'Directory {dst_path} already exists.')
+        sys.exit(True)
+
+
 def _split_container_and_file(path: str) -> list:
     return path.split(':', 1)
 
 
 if __name__ == '__main__':
-    KubectlCP()
+    Main()
