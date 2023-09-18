@@ -28,6 +28,19 @@ class Direction(Enum):
     invalid = 5
 
 
+class FileSystem(Enum):
+    """_summary_
+
+    Args:
+        Enum (_type_): _description_
+    """
+    unknown = 0
+    file = 1
+    directory = 2
+    hard_link = 3
+    symbolic_link = 4
+
+
 class KubectlCP():
     """ KubectlCP class """
 
@@ -168,10 +181,25 @@ class KubectlCP():
                f'-- cat {src_file}')
         self._verbose(f'command: {cmd}')
 
-        result = subprocess.check_output(shlex.split(cmd))
-        _save_file(dst_file, result)
+        file_type = FileSystem.unknown
+        try:
+            result = subprocess.run(shlex.split(cmd),
+                                    check=True, capture_output=True)
+            file_type = FileSystem.file
+        except subprocess.CalledProcessError:
+            file_type = FileSystem.directory
 
-        return result
+        print(file_type.name)
+        if file_type == FileSystem.file:
+            _save_file(dst_file, result.stdout)
+        elif file_type == FileSystem.directory:
+            try:
+                os.mkdir(dst_file)
+            except FileExistsError:
+                print(f'Directory {dst_file} already exists.')
+                sys.exit(True)
+
+        # return result
 
     def from_localhost_to_container(self, container: str,
                                     src_file: str, dst_file: str,
@@ -204,7 +232,7 @@ class KubectlCP():
     def from_container_directory_to_localhost(self, container: str,
                                               src_dir: str, dst_dir: str,
                                               kubectl_args: str) -> bool:
-        """_summary_
+        """ Copy a directory and contents from container to localhost
 
         Args:
             container (str): Container name
@@ -230,9 +258,12 @@ class KubectlCP():
         files = result.stdout.decode().split("\n")
         print(files)
 
-        # for file in files:
-        #     self.from_container_to_localhost(
-        #         container, file, '.', kubectl_args)
+        for file in files:
+            if file == '':
+                continue
+
+            self.from_container_to_localhost(
+                container, file, dst_dir, kubectl_args)
 
         return False
 
