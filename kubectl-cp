@@ -214,10 +214,9 @@ class Main():
                f'-c {container} '
                f'-- sh -c "echo \'{content.decode()}\' | tee {dst_path}"')
         self._verbose(f'command: {cmd}')
-        tokenized = shlex.split(cmd)
-        self._verbose(f'tokenized: {tokenized}')
 
-        result = subprocess.run(tokenized, check=False, capture_output=False)
+        result = subprocess.run(shlex.split(cmd),
+                                check=False, capture_output=False)
 
         return result
 
