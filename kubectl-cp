@@ -172,8 +172,7 @@ class KubectlCP():
         Returns:
             _type_: _description_
         """
-        with open(src_file, 'rb') as reader:
-            content = reader.readline()
+        content = _read_file(src_file)
 
         cmd = ('kubectl exec '
                f'-i {kubectl_args} '
@@ -188,18 +187,40 @@ class KubectlCP():
         return result
 
 
+def _read_file(file_path: str) -> str:
+    """ Read file content
+
+    Args:
+        file_path (str): File path
+
+    Returns:
+        str: File content
+    """
+    try:
+        with open(file_path, 'rb') as reader:
+            content = reader.readline()
+        return content
+    except EnvironmentError:
+        return True
+
+
 def _save_file(file_path: str, content: bytes) -> bool:
     """ Save content to file
 
     Args:
-        file_path (str): _description_
-        content (bytes): _description_
+        file_path (str): File path
+        content (bytes): Content
 
     Returns:
         bool: _description_
     """
-    with open(file_path, 'wb') as f:
-        f.write(content)
+    try:
+        with open(file_path, 'wb') as f:
+            f.write(content)
+    except EnvironmentError:
+        return True
+
+    return False
 
 
 def _split_container_and_file(path: str) -> list:
