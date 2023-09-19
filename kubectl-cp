@@ -45,13 +45,15 @@ class Main():
     """ Main class """
 
     __version__ = '0.1.0'
-    __date__ = '2023-09-15'
+    __date__ = '2023-09-19'
 
     def __init__(self):
         self.__verbose = False
         self.__container: str = None
         self.__src_path: str = None
         self.__dst_path: str = None
+        self.__src_basepath: str = None
+        # self.__dst_basepath: str = None
 
         parser = argparse.ArgumentParser(
             prog='kubectl-cp',
@@ -123,6 +125,7 @@ class Main():
                 args.arguments
             )
         elif direction == Direction.download and args.recursive:
+            self.__src_basepath = os.path.basename(self.__src_path)
             self.from_container_directory_to_localhost(
                 self.__container, self.__src_path, self.__dst_path,
                 args.arguments
@@ -237,9 +240,6 @@ class Main():
         Returns:
             bool: _description_
         """
-        if dst_dir == '.':
-            dst_dir = os.path.basename(src_dir)
-
         self._verbose('Fetching file list...')
         cmd = (f'kubectl exec -i {kubectl_args} '
                f'-c {container} '
@@ -257,8 +257,12 @@ class Main():
         files = [x for x in files if x != '']
 
         for src_path in files:
+            dst_path = os.path.join(
+                dst_dir,
+                src_path[src_path.index(self.__src_basepath):]
+            )
             self.from_container_to_localhost(
-                container, src_path, dst_dir, kubectl_args)
+                container, src_path, dst_path, kubectl_args)
 
         return False
 
