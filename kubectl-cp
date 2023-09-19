@@ -172,13 +172,15 @@ class Main():
         Returns:
             bool: False on OK
         """
+        self._verbose(f'Copying {src_path}')
+
         if dst_path == '.':
             dst_path = os.path.basename(src_path)
 
         cmd = (f'kubectl exec -i {kubectl_args} '
                f'-c {container} '
                f'-- cat {src_path}')
-        self._verbose(f'command: {cmd}')
+        self._verbose(f'  Command: {cmd}')
 
         file_type = FileSystem.unknown
         try:
@@ -191,7 +193,7 @@ class Main():
         if file_type == FileSystem.file:
             _save_file(dst_path, result.stdout)
         elif file_type == FileSystem.directory:
-            _create_directory(dst_path)
+            self._create_directory(dst_path)
 
     def from_localhost_to_container(self, container: str,
                                     src_path: str, dst_path: str,
@@ -213,7 +215,7 @@ class Main():
                f'-i {kubectl_args} '
                f'-c {container} '
                f'-- sh -c "echo \'{content.decode()}\' | tee {dst_path}"')
-        self._verbose(f'command: {cmd}')
+        self._verbose(f'  Command: {cmd}')
 
         result = subprocess.run(shlex.split(cmd),
                                 check=False, capture_output=False)
@@ -234,6 +236,9 @@ class Main():
         Returns:
             bool: _description_
         """
+        if dst_dir == '.':
+            dst_dir = os.path.basename(src_dir)
+
         cmd = (f'kubectl exec -i {kubectl_args} '
                f'-c {container} '
                f'-- sh -c "ls -1dR {src_dir}/*"')
@@ -247,6 +252,7 @@ class Main():
             sys.exit(True)
 
         files = result.stdout.decode().split("\n")
+        files.insert(0, dst_dir)
         files = [x for x in files if x != '']
         self._verbose(f'File list: {files}')
 
@@ -255,6 +261,19 @@ class Main():
                 container, file, dst_dir, kubectl_args)
 
         return False
+
+    def _create_directory(self, dst_path: str):
+        """ Create directory
+
+        Args:
+            dst_path (str): Directory name
+        """
+        self._verbose(f'  Creating directory {dst_path}')
+        try:
+            os.mkdir(dst_path)
+        except FileExistsError:
+            print(f'  Directory {dst_path} already exists.')
+            # sys.exit(True)
 
 
 def _read_file(file_path: str) -> str:
@@ -291,19 +310,6 @@ def _save_file(file_path: str, content: bytes) -> bool:
         return True
 
     return False
-
-
-def _create_directory(dst_path: str):
-    """ Create directory
-
-    Args:
-        dst_path (str): Directory name
-    """
-    try:
-        os.mkdir(dst_path)
-    except FileExistsError:
-        print(f'Directory {dst_path} already exists.')
-        sys.exit(True)
 
 
 def _split_container_and_file(path: str) -> list:
