@@ -6,14 +6,20 @@ Theres no dependencies needed on container side, batteries included.
 
 ## Usage
 
-### From container to localhost
+### Copy a file from container to localhost
 
 ``` sh
 kubectl-cp -a '-n iam deployment/keycloak' /tmp/opa .
 ```
 
-### From localhost to container
+### Copy a file from localhost to container
 
 ``` sh
 kubectl-cp -a '-n iam deployment/keycloak' source_file.txt /tmp/out_file.txt
+```
+
+### Copy a directory structure from container to localhost
+
+``` sh
+kubectl-cp -a 'pod/example' -r container:/tmp/my_dir .
 ```
