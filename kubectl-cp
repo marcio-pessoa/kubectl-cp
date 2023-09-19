@@ -20,25 +20,40 @@ class Direction(Enum):
     """_summary_
 
     Args:
-        Enum (_type_): _description_
+        Enum (int): _description_
     """
     unknown = 0
     download = 1
     upload = 2
-    invalid = 3
+    invalid = 5
 
 
-class KubectlCP():
-    """ KubectlCP class """
+class FileSystem(Enum):
+    """_summary_
+
+    Args:
+        Enum (_type_): _description_
+    """
+    unknown = 0
+    file = 1
+    directory = 2
+    hard_link = 3
+    symbolic_link = 4
+
+
+class Main():
+    """ Main class """
 
     __version__ = '0.1.0'
-    __date__ = '2023-09-15'
+    __date__ = '2023-09-19'
 
     def __init__(self):
         self.__verbose = False
         self.__container: str = None
-        self.__src_file: str = None
-        self.__dst_file: str = None
+        self.__src_path: str = None
+        self.__dst_path: str = None
+        self.__src_basepath: str = None
+        # self.__dst_basepath: str = None
 
         parser = argparse.ArgumentParser(
             prog='kubectl-cp',
@@ -73,38 +88,53 @@ class KubectlCP():
             action='store_true'
         )
         parser.add_argument(
-            'src_file',
-            help='Source file')
+            '-r', '--recursive',
+            help='Recursively copy directories',
+            action='store_true'
+        )
         parser.add_argument(
-            'dst_file',
-            help='Destination file')
+            'src_path',
+            help='Source path')
+        parser.add_argument(
+            'dst_path',
+            help='Destination path')
         parser.add_argument(
             '-a', '--arguments',
             help='kubectl arguments'
         )
 
         args = parser.parse_args()
-        if args.verbose:
-            self.__verbose = True
+        self.__verbose = args.verbose
 
-        direction = self._detect_direction(args.src_file, args.dst_file)
+        direction = self._detect_direction(args.src_path, args.dst_path)
 
         self._verbose(f'direction: {direction.name}')
         self._verbose(f'container: {self.__container}')
-        self._verbose(f'source: {self.__src_file}')
-        self._verbose(f'destination: {self.__dst_file}')
+        self._verbose(f'source: {self.__src_path}')
+        self._verbose(f'destination: {self.__dst_path}')
         self._verbose(f'arguments: {args.arguments}')
 
-        if direction == Direction.download:
+        if direction == Direction.download and not args.recursive:
             self.from_container_to_localhost(
-                self.__container, self.__src_file, self.__dst_file,
+                self.__container, self.__src_path, self.__dst_path,
                 args.arguments
             )
-        elif direction == Direction.upload:
+        elif direction == Direction.upload and not args.recursive:
             self.from_localhost_to_container(
-                self.__container, self.__src_file, self.__dst_file,
+                self.__container, self.__src_path, self.__dst_path,
                 args.arguments
             )
+        elif direction == Direction.download and args.recursive:
+            self.__src_basepath = os.path.basename(self.__src_path)
+            self.from_container_directory_to_localhost(
+                self.__container, self.__src_path, self.__dst_path,
+                args.arguments
+            )
+        # elif direction == Direction.upload and args.recursive:
+        #     self.from_localhost_to_container(
+        #         self.__container, self.__src_path, self.__dst_path,
+        #         args.arguments
+        #     )
         else:
             print('Invalid input.')
             sys.exit(1)
@@ -113,78 +143,141 @@ class KubectlCP():
         if self.__verbose:
             print(message)
 
-    def _detect_direction(self, src_file, dst_file):
+    def _detect_direction(self, src_path, dst_path):
         direction = Direction.unknown
 
-        if len(_split_container_and_file(src_file)) > 1:
+        if len(_split_container_and_file(src_path)) > 1:
             direction = Direction.download
-            self.__container = _split_container_and_file(src_file)[0]
-            self.__src_file = _split_container_and_file(src_file)[1]
-            self.__dst_file = dst_file
-        elif len(_split_container_and_file(dst_file)) > 1:
+            self.__container = _split_container_and_file(src_path)[0]
+            self.__src_path = _split_container_and_file(src_path)[1]
+            self.__dst_path = dst_path
+        elif len(_split_container_and_file(dst_path)) > 1:
             direction = Direction.upload
-            self.__container = _split_container_and_file(dst_file)[0]
-            self.__src_file = src_file
-            self.__dst_file = _split_container_and_file(dst_file)[1]
+            self.__container = _split_container_and_file(dst_path)[0]
+            self.__src_path = src_path
+            self.__dst_path = _split_container_and_file(dst_path)[1]
         else:
             direction = Direction.invalid
 
         return direction
 
     def from_container_to_localhost(self, container: str,
-                                    src_file: str, dst_file: str,
-                                    kubectl_args):
+                                    src_path: str, dst_path: str,
+                                    kubectl_args: str) -> bool:
         """ Copy a file from container to localhost
 
         Args:
-            container (str): _description_
-            src_file (str): _description_
-            dst_file (str): _description_
-            kubectl_args (str): _description_
+            container (str): Container name
+            src_path (str): Source file
+            dst_path (str): Destination file
+            kubectl_args (str): kubectl arguments
 
         Returns:
-            _type_: _description_
+            bool: False on OK
         """
-        if dst_file == '.':
-            dst_file = os.path.basename(src_file)
+        self._verbose(f'Copying {src_path}...')
+
+        if dst_path == '.':
+            dst_path = os.path.basename(src_path)
 
         cmd = (f'kubectl exec -i {kubectl_args} '
                f'-c {container} '
-               f'-- cat {src_file}')
-        self._verbose(f'command: {cmd}')
+               f'-- cat {src_path}')
+        self._verbose(f'  Command: {cmd}')
 
-        result = subprocess.check_output(shlex.split(cmd))
-        _save_file(dst_file, result)
+        file_type = FileSystem.unknown
+        try:
+            result = subprocess.run(shlex.split(cmd),
+                                    check=True, capture_output=True)
+            file_type = FileSystem.file
+        except subprocess.CalledProcessError:
+            file_type = FileSystem.directory
 
-        return result
+        if file_type == FileSystem.file:
+            _save_file(dst_path, result.stdout)
+        elif file_type == FileSystem.directory:
+            self._verbose(f'  Creating directory {dst_path}...')
+            _create_directory(dst_path)
 
     def from_localhost_to_container(self, container: str,
-                                    src_file: str, dst_file: str,
+                                    src_path: str, dst_path: str,
                                     kubectl_args: str):
         """ Copy a file from localhost to container
 
         Args:
-            container (str): _description_
-            src_file (str): _description_
-            dst_file (str): _description_
-            kubectl_args (str): _description_
+            container (str): Container name
+            src_path (str): Source file
+            dst_path (str): Destination file
+            kubectl_args (str): kubectl arguments
 
         Returns:
             _type_: _description_
         """
-        content = _read_file(src_file)
+        content = _read_file(src_path)
 
         cmd = ('kubectl exec '
                f'-i {kubectl_args} '
                f'-c {container} '
-               f'-- sh -c "echo \'{content.decode()}\' | tee {dst_file}"')
-        self._verbose(f'command: {cmd}')
-        tokenized = shlex.split(cmd)
-        self._verbose(f'tokenized: {tokenized}')
+               f'-- sh -c "echo \'{content.decode()}\' | tee {dst_path}"')
+        self._verbose(f'  Command: {cmd}')
 
-        result = subprocess.run(tokenized, check=False, capture_output=False)
+        result = subprocess.run(shlex.split(cmd),
+                                check=False, capture_output=False)
 
         return result
+
+    def from_container_directory_to_localhost(self, container: str,
+                                              src_dir: str, dst_dir: str,
+                                              kubectl_args: str) -> bool:
+        """ Copy a directory and contents from container to localhost
+
+        Args:
+            container (str): Container name
+            src_dir (str): Source directory
+            dst_dir (str): Destination directory
+            kubectl_args (str): kubectl arguments
+
+        Returns:
+            bool: _description_
+        """
+        self._verbose('Fetching file list...')
+        cmd = (f'kubectl exec -i {kubectl_args} '
+               f'-c {container} '
+               f'-- sh -c "ls -1dR {src_dir}/*"')
+        self._verbose(f'  Command: {cmd}')
+        try:
+            result = subprocess.run(shlex.split(cmd),
+                                    check=True, capture_output=True)
+        except subprocess.CalledProcessError:
+            print('  Failed to read directory')
+            sys.exit(True)
+
+        files = result.stdout.decode().split("\n")
+        files.insert(0, src_dir)
+        files = [x for x in files if x != '']
+
+        for src_path in files:
+            dst_path = os.path.join(
+                dst_dir,
+                src_path[src_path.index(self.__src_basepath):]
+            )
+            self.from_container_to_localhost(
+                container, src_path, dst_path, kubectl_args)
+
+        return False
+
+
+def _create_directory(dst_path: str):
+    """ Create directory
+
+    Args:
+        dst_path (str): Directory name
+    """
+    try:
+        os.mkdir(dst_path)
+    except FileExistsError:
+        print(f'    Directory {dst_path} already exists.')
+        # sys.exit(True)
 
 
 def _read_file(file_path: str) -> str:
@@ -197,8 +290,8 @@ def _read_file(file_path: str) -> str:
         str: File content
     """
     try:
-        with open(file_path, 'rb') as reader:
-            content = reader.readline()
+        with open(file_path, 'rb') as f:
+            content = f.readline()
         return content
     except EnvironmentError:
         return True
@@ -228,4 +321,4 @@ def _split_container_and_file(path: str) -> list:
 
 
 if __name__ == '__main__':
-    KubectlCP()
+    Main()
