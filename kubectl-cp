@@ -44,8 +44,8 @@ class FileSystem(Enum):
 class Main():
     """ Main class """
 
-    __version__ = '0.1.0'
-    __date__ = '2023-09-19'
+    __version__ = '0.1.1-43'
+    __date__ = '2023-09-20'
 
     def __init__(self):
         self.__verbose = False
@@ -218,10 +218,10 @@ class Main():
         cmd = ('kubectl exec '
                f'-i {kubectl_args} '
                f'-c {container} '
-               f'-- sh -c "echo \'{content.decode()}\' | tee {dst_path}"')
+               f'-- sh -c "tee {dst_path} > /dev/null"')
         self._verbose(f'  Command: {cmd}')
 
-        result = subprocess.run(shlex.split(cmd),
+        result = subprocess.run(shlex.split(cmd), input=content,
                                 check=False, capture_output=False)
 
         return result
@@ -280,18 +280,18 @@ def _create_directory(dst_path: str):
         # sys.exit(True)
 
 
-def _read_file(file_path: str) -> str:
+def _read_file(file_path: str) -> bytes:
     """ Read file content
 
     Args:
         file_path (str): File path
 
     Returns:
-        str: File content
+        bytes: File content
     """
     try:
         with open(file_path, 'rb') as f:
-            content = f.readline()
+            content = f.read()
         return content
     except EnvironmentError:
         return True
