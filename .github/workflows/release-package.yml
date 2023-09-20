@@ -1,4 +1,4 @@
-name: Create and publish a Docker image
+name: Create and publish a container image
 on:
   release:
     types: [published]
@@ -6,8 +6,11 @@ env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
 jobs:
-  kaniko:
+  build:
     runs-on: ubuntu-latest
+    permissions:
+      packages: write
+      contents: read
     steps:
       - name: Checkout code
         uses: actions/checkout@main
