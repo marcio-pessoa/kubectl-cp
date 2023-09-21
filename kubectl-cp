@@ -75,24 +75,6 @@ class Main():
             ),
         )
         parser.add_argument(
-            '-V', '--version',
-            action='version',
-            help='show version information and exit',
-            version=(
-                f'kubectl-cp {self.__version__} {self.__date__}'
-            ),
-        )
-        parser.add_argument(
-            '-v', '--verbose',
-            help='Enable verbose output',
-            action='store_true'
-        )
-        parser.add_argument(
-            '-r', '--recursive',
-            help='Recursively copy directories',
-            action='store_true'
-        )
-        parser.add_argument(
             'src_path',
             help='Source path')
         parser.add_argument(
@@ -101,6 +83,24 @@ class Main():
         parser.add_argument(
             '-a', '--arguments',
             help='kubectl arguments'
+        )
+        parser.add_argument(
+            '-r', '--recursive',
+            help='Recursively copy directories',
+            action='store_true'
+        )
+        parser.add_argument(
+            '-v', '--verbose',
+            help='Enable verbose output',
+            action='store_true'
+        )
+        parser.add_argument(
+            '-V', '--version',
+            action='version',
+            help='show version information and exit',
+            version=(
+                f'kubectl-cp {self.__version__} {self.__date__}'
+            ),
         )
 
         args = parser.parse_args()
