@@ -65,8 +65,9 @@ class Main():
             add_help=True,
             epilog=(
                 'examples:\n'
-                '  kubectl-cp src dst\n'
-                '  kubectl-cp src dst\n'
+                '  kubectl-cp -a "pod/example" container:/tmp/file .\n'
+                '  kubectl-cp -a "deploy/example" -r container:/dir .\n'
+                '  kubectl-cp -a "pod/example" file container:/tmp\n'
                 '\n'
                 'Copyleft (c) 2023-2023 Marcio Pessoa\n'
                 'License: GPLv3\n'
