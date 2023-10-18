@@ -181,7 +181,7 @@ class Main():
         if dst_path == '.':
             dst_path = os.path.basename(src_path)
 
-        cmd = (f'kubectl exec -i {kubectl_args} '
+        cmd = (f'{_kubectl_path()} exec -i {kubectl_args} '
                f'-c {container} '
                f'-- cat {src_path}')
         self._verbose(f'  Command: {cmd}')
@@ -216,7 +216,7 @@ class Main():
         """
         content = _read_file(src_path)
 
-        cmd = ('kubectl exec '
+        cmd = (f'{_kubectl_path()} exec '
                f'-i {kubectl_args} '
                f'-c {container} '
                f'-- sh -c "tee {dst_path} > /dev/null"')
@@ -242,7 +242,7 @@ class Main():
             bool: _description_
         """
         self._verbose('Fetching file list...')
-        cmd = (f'kubectl exec -i {kubectl_args} '
+        cmd = (f'{_kubectl_path()} exec -i {kubectl_args} '
                f'-c {container} '
                f'-- sh -c "ls -1dR {src_dir}/*"')
         self._verbose(f'  Command: {cmd}')
@@ -266,6 +266,14 @@ class Main():
                 container, src_path, dst_path, kubectl_args)
 
         return False
+
+
+def _kubectl_path():
+    paths = ['/snap/bin/kubectl', '/usr/local/bin/kubectl']
+    for path in paths:
+        if os.path.isfile(path):
+            return path
+    sys.exit('kubectl: command not found')
 
 
 def _create_directory(dst_path: str):
