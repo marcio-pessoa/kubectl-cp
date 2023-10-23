@@ -269,7 +269,11 @@ class Main():
 
 
 def _kubectl_path():
-    paths = ['/snap/bin/kubectl', '/usr/local/bin/kubectl']
+    paths = [
+        '/snap/bin/kubectl',
+        '/usr/bin/kubectl',
+        '/usr/local/bin/kubectl',
+    ]
     for path in paths:
         if os.path.isfile(path):
             return path
