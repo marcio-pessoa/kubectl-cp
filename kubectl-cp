@@ -217,6 +217,7 @@ class Main():
         content = _read_file(src_path)
         if not content:
             print(f'{src_path}: file not found.')
+            return True
 
         cmd = (f'{_kubectl_path()} exec '
                f'-i {kubectl_args} '
