@@ -44,8 +44,8 @@ class FileSystem(Enum):
 class Main():
     """ Main class """
 
-    __version__ = '0.1.4-43'
-    __date__ = '2023-11-01'
+    __version__ = '0.1.5-66'
+    __date__ = '2024-03-18'
 
     def __init__(self):
         self.__verbose = False
@@ -215,6 +215,9 @@ class Main():
             _type_: _description_
         """
         content = _read_file(src_path)
+        if not content:
+            print(f'{src_path}: file not found.')
+            return True
 
         cmd = (f'{_kubectl_path()} exec '
                f'-i {kubectl_args} '
@@ -301,13 +304,16 @@ def _read_file(file_path: str) -> bytes:
 
     Returns:
         bytes: File content
+        False: Error (i.e. file not found)
     """
     try:
         with open(file_path, 'rb') as f:
             content = f.read()
         return content
+    except FileNotFoundError:
+        return False
     except EnvironmentError:
-        return True
+        return False
 
 
 def _save_file(file_path: str, content: bytes) -> bool:
