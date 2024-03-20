@@ -44,8 +44,8 @@ class FileSystem(Enum):
 class Main():
     """ Main class """
 
-    __version__ = '0.1.5-66'
-    __date__ = '2024-03-18'
+    __version__ = '0.1.6-70'
+    __date__ = '2024-03-20'
 
     def __init__(self):
         self.__verbose = False
@@ -115,30 +115,32 @@ class Main():
         self._verbose(f'destination: {self.__dst_path}')
         self._verbose(f'arguments: {args.arguments}')
 
+        result = 1
         if direction == Direction.download and not args.recursive:
-            self.from_container_to_localhost(
+            result = self.from_container_to_localhost(
                 self.__container, self.__src_path, self.__dst_path,
                 args.arguments
             )
         elif direction == Direction.upload and not args.recursive:
-            self.from_localhost_to_container(
+            result = self.from_localhost_to_container(
                 self.__container, self.__src_path, self.__dst_path,
                 args.arguments
             )
         elif direction == Direction.download and args.recursive:
             self.__src_basepath = os.path.basename(self.__src_path)
-            self.from_container_directory_to_localhost(
+            result = self.from_container_directory_to_localhost(
                 self.__container, self.__src_path, self.__dst_path,
                 args.arguments
             )
         # elif direction == Direction.upload and args.recursive:
-        #     self.from_localhost_to_container(
+        #     result = self.from_localhost_to_container(
         #         self.__container, self.__src_path, self.__dst_path,
         #         args.arguments
         #     )
         else:
             print('Invalid input.')
-            sys.exit(1)
+
+        sys.exit(result)
 
     def _verbose(self, message):
         if self.__verbose:
@@ -195,14 +197,16 @@ class Main():
             file_type = FileSystem.directory
 
         if file_type == FileSystem.file:
-            _save_file(dst_path, result.stdout)
-        elif file_type == FileSystem.directory:
+            return _save_file(dst_path, result.stdout)
+        if file_type == FileSystem.directory:
             self._verbose(f'  Creating directory {dst_path}...')
-            _create_directory(dst_path)
+            return _create_directory(dst_path)
+
+        return True
 
     def from_localhost_to_container(self, container: str,
                                     src_path: str, dst_path: str,
-                                    kubectl_args: str):
+                                    kubectl_args: str) -> bool:
         """ Copy a file from localhost to container
 
         Args:
@@ -212,7 +216,7 @@ class Main():
             kubectl_args (str): kubectl arguments
 
         Returns:
-            _type_: _description_
+            bool: False on OK
         """
         content = _read_file(src_path)
         if not content:
@@ -228,7 +232,7 @@ class Main():
         result = subprocess.run(shlex.split(cmd), input=content,
                                 check=False, capture_output=False)
 
-        return result
+        return result.returncode
 
     def from_container_directory_to_localhost(self, container: str,
                                               src_dir: str, dst_dir: str,
@@ -242,7 +246,7 @@ class Main():
             kubectl_args (str): kubectl arguments
 
         Returns:
-            bool: _description_
+            bool: False on OK
         """
         self._verbose('Fetching file list...')
         cmd = (f'{_kubectl_path()} exec -i {kubectl_args} '
@@ -254,7 +258,7 @@ class Main():
                                     check=True, capture_output=True)
         except subprocess.CalledProcessError:
             print('  Failed to read directory')
-            sys.exit(True)
+            return True
 
         files = result.stdout.decode().split("\n")
         files.insert(0, src_dir)
@@ -265,8 +269,9 @@ class Main():
                 dst_dir,
                 src_path[src_path.index(self.__src_basepath):]
             )
-            self.from_container_to_localhost(
-                container, src_path, dst_path, kubectl_args)
+            if self.from_container_to_localhost(
+                    container, src_path, dst_path, kubectl_args):
+                return True
 
         return False
 
@@ -283,17 +288,21 @@ def _kubectl_path():
     sys.exit('kubectl: command not found')
 
 
-def _create_directory(dst_path: str):
+def _create_directory(dst_path: str) -> bool:
     """ Create directory
 
     Args:
         dst_path (str): Directory name
+
+    Returns:
+        bool: False on OK
     """
     try:
         os.mkdir(dst_path)
+        return False
     except FileExistsError:
         print(f'    Directory {dst_path} already exists.')
-        # sys.exit(True)
+        return True
 
 
 def _read_file(file_path: str) -> bytes:
@@ -324,7 +333,7 @@ def _save_file(file_path: str, content: bytes) -> bool:
         content (bytes): Content
 
     Returns:
-        bool: _description_
+        bool: False on OK
     """
     try:
         with open(file_path, 'wb') as f:
