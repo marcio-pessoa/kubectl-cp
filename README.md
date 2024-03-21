@@ -17,7 +17,7 @@ kubectl-cp -a '-n iam deployment/keycloak' /tmp/opa .
 #### Copy a file from localhost to container
 
 ``` sh
-kubectl-cp -a '-n iam deployment/keycloak' source_file.txt /tmp/out_file.txt
+kubectl-cp -a '-n iam deployment/keycloak' source_file.txt /out_file.txt
 ```
 
 #### Copy a directory structure from container to localhost
@@ -26,8 +26,15 @@ kubectl-cp -a '-n iam deployment/keycloak' source_file.txt /tmp/out_file.txt
 kubectl-cp -a 'pod/example' -r container:/tmp/my_dir .
 ```
 
+#### Copy a directory structure from localhost to container
+
+``` sh
+kubectl-cp -a 'pod/example' -r my_dir container:/tmp/
+```
+
 ### Using from Docker image
 
 ``` sh
-docker run -v /home/user/.kube/config:/root/.kube/config kubectl-cp -a 'pod/example' container:/tmp/my_file .
+docker run -v /home/user/.kube/config:/root/.kube/config \
+  kubectl-cp -a 'pod/example' container:/tmp/source_file.txt .
 ```

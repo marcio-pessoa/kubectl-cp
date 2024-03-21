@@ -44,8 +44,8 @@ class FileSystem(Enum):
 class Main():
     """ Main class """
 
-    __version__ = '0.1.6-70'
-    __date__ = '2024-03-20'
+    __version__ = '0.2.0-73'
+    __date__ = '2024-03-21'
 
     def __init__(self):
         self.__verbose = False
@@ -53,7 +53,6 @@ class Main():
         self.__src_path: str = None
         self.__dst_path: str = None
         self.__src_basepath: str = None
-        # self.__dst_basepath: str = None
 
         parser = argparse.ArgumentParser(
             prog='kubectl-cp',
@@ -132,11 +131,11 @@ class Main():
                 self.__container, self.__src_path, self.__dst_path,
                 args.arguments
             )
-        # elif direction == Direction.upload and args.recursive:
-        #     result = self.from_localhost_to_container(
-        #         self.__container, self.__src_path, self.__dst_path,
-        #         args.arguments
-        #     )
+        elif direction == Direction.upload and args.recursive:
+            result = self.from_localhost_directory_to_container(
+                self.__container, self.__src_path, self.__dst_path,
+                args.arguments
+            )
         else:
             print('Invalid input.')
 
@@ -275,6 +274,50 @@ class Main():
 
         return False
 
+    def from_localhost_directory_to_container(self, container: str,
+                                              src_dir: str, dst_dir: str,
+                                              kubectl_args: str) -> bool:
+        """ Copy a directory and contents from localhost to container
+
+        Args:
+            container (str): Container name
+            src_dir (str): Source directory
+            dst_dir (str): Destination directory
+            kubectl_args (str): kubectl arguments
+
+        Returns:
+            bool: False on OK
+        """
+        self._verbose('Fetching file list...')
+        files_local, files_full_path = \
+            _list_local_directory_recursively(src_dir)
+        self._verbose(files_local)
+
+        self._verbose('Creating destination directory structure...')
+        dst_directories = _summarize_directory_structure(
+            _join_paths(dst_dir, files_local))
+
+        for dst_directory in dst_directories:
+            cmd = (f'{_kubectl_path()} exec -i {kubectl_args} '
+                   f'-c {container} '
+                   f'-- sh -c "mkdir -p {dst_directory}"')
+            self._verbose(f'  Command: {cmd}')
+            try:
+                subprocess.run(shlex.split(cmd),
+                               check=True, capture_output=True)
+            except subprocess.CalledProcessError:
+                print('  Failed to create directory')
+                return True
+
+        for file_name, src_path in zip(files_local, files_full_path):
+            dst_path = os.path.join(dst_dir, file_name)
+
+            if self.from_localhost_to_container(
+                    container, src_path, dst_path, kubectl_args):
+                return True
+
+        return False
+
 
 def _kubectl_path():
     paths = [
@@ -346,6 +389,43 @@ def _save_file(file_path: str, content: bytes) -> bool:
 
 def _split_container_and_file(path: str) -> list:
     return path.split(':', 1)
+
+
+def _list_local_directory_recursively(path: str) \
+        -> tuple[list[str], list[str]]:
+    """ List local directory recursively
+
+    Args:
+        path (str): Work directory
+
+    Returns:
+        tuple[list, list]: Lists of files and with full path
+    """
+    file_names: list[str] = []
+    full_paths: list[str] = []
+
+    for dirpath, _, filenames in os.walk(path):
+        for f in filenames:
+            file_names.append(
+                os.path.join(dirpath, f))
+            full_paths.append(
+                os.path.abspath(os.path.join(dirpath, f)))
+
+    return file_names, full_paths
+
+
+def _join_paths(base_path: str, files: list[str]) -> list[str]:
+    result: list[str] = []
+    for i in files:
+        result.append(os.path.join(base_path, i))
+    return result
+
+
+def _summarize_directory_structure(files: list[str]) -> set[str]:
+    result: list[str] = []
+    for i in files:
+        result.append(os.path.dirname(i))
+    return set(result)
 
 
 if __name__ == '__main__':
