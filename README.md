@@ -26,6 +26,12 @@ kubectl-cp -a '-n iam deployment/keycloak' source_file.txt /out_file.txt
 kubectl-cp -a 'pod/example' -r container:/tmp/my_dir .
 ```
 
+#### Copy a directory structure from localhost to container
+
+``` sh
+kubectl-cp -a 'pod/example' -r my_dir container:/tmp/
+```
+
 ### Using from Docker image
 
 ``` sh
