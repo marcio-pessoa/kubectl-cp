@@ -106,7 +106,8 @@ class Main():
         args = parser.parse_args()
         self.__verbose = args.verbose
 
-        direction = self._detect_direction(args.src_path, args.dst_path)
+        direction = _detect_direction(args.src_path, args.dst_path)
+        self._set_direction_env(direction, args.src_path, args.dst_path)
 
         self._verbose(f'direction: {direction.name}')
         self._verbose(f'container: {self.__container}')
@@ -145,23 +146,15 @@ class Main():
         if self.__verbose:
             print(message)
 
-    def _detect_direction(self, src_path, dst_path):
-        direction = Direction.unknown
-
-        if len(_split_container_and_file(src_path)) > 1:
-            direction = Direction.download
+    def _set_direction_env(self, direction, src_path, dst_path):
+        if direction == Direction.download:
             self.__container = _split_container_and_file(src_path)[0]
             self.__src_path = _split_container_and_file(src_path)[1]
             self.__dst_path = dst_path
-        elif len(_split_container_and_file(dst_path)) > 1:
-            direction = Direction.upload
+        elif direction == Direction.upload:
             self.__container = _split_container_and_file(dst_path)[0]
             self.__src_path = src_path
             self.__dst_path = _split_container_and_file(dst_path)[1]
-        else:
-            direction = Direction.invalid
-
-        return direction
 
     def from_container_to_localhost(self, container: str,
                                     src_path: str, dst_path: str,
@@ -317,6 +310,14 @@ class Main():
                 return True
 
         return False
+
+
+def _detect_direction(src_path, dst_path) -> Direction:
+    if len(_split_container_and_file(src_path)) > 1:
+        return Direction.download
+    if len(_split_container_and_file(dst_path)) > 1:
+        return Direction.upload
+    return Direction.invalid
 
 
 def _kubectl_path():
