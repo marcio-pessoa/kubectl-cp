@@ -321,12 +321,12 @@ def _detect_direction(src_path, dst_path) -> Direction:
 
 
 def _kubectl_path():
-    paths = [
+    possible_paths = [
         '/snap/bin/kubectl',
         '/usr/bin/kubectl',
         '/usr/local/bin/kubectl',
     ]
-    for path in paths:
+    for path in possible_paths:
         if os.path.isfile(path):
             return path
     sys.exit('kubectl: command not found')
