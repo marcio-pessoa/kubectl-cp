@@ -17,10 +17,10 @@ import subprocess
 
 
 class Direction(Enum):
-    """_summary_
+    """ File transfer direction type
 
     Args:
-        Enum (int): _description_
+        Enum (int): File transfer direction type
     """
     unknown = 0
     download = 1
@@ -29,10 +29,10 @@ class Direction(Enum):
 
 
 class FileSystem(Enum):
-    """_summary_
+    """ File system object type
 
     Args:
-        Enum (_type_): _description_
+        Enum (int): File system object type
     """
     unknown = 0
     file = 1
