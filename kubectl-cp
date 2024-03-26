@@ -44,7 +44,7 @@ class FileSystem(Enum):
 class Main():
     """ Main class """
 
-    __version__ = '0.2.0-73'
+    __version__ = '0.2.1-80'
     __date__ = '2024-03-21'
 
     def __init__(self):
@@ -67,8 +67,9 @@ class Main():
                 '  kubectl-cp -a "pod/example" container:/tmp/file .\n'
                 '  kubectl-cp -a "deploy/example" -r container:/dir .\n'
                 '  kubectl-cp -a "pod/example" file container:/tmp\n'
+                '  kubectl-cp -a "-n test pod/example" -r dir container:/dir\n'
                 '\n'
-                'Copyleft (c) 2023-2023 Marcio Pessoa\n'
+                'Copyleft (ↄ) 2023-2024 Marcio Pessoa\n'
                 'License: GPLv3\n'
                 'Website: https://github.com/marcio-pessoa/kubectl-cp\n'
                 'Contact: Marcio Pessoa <marcio.pessoa@gmail.com>\n'
@@ -170,6 +171,9 @@ class Main():
         Returns:
             bool: False on OK
         """
+        if not self.__check_remote_path(container, src_path, kubectl_args):
+            return True
+
         self._verbose(f'Copying {src_path}...')
 
         if dst_path == '.':
@@ -240,6 +244,9 @@ class Main():
         Returns:
             bool: False on OK
         """
+        if not self.__check_remote_path(container, src_dir, kubectl_args):
+            return True
+
         self._verbose('Fetching file list...')
         cmd = (f'{_kubectl_path()} exec -i {kubectl_args} '
                f'-c {container} '
@@ -310,6 +317,31 @@ class Main():
                 return True
 
         return False
+
+    def __check_remote_path(self, container: str, path: str,
+                            kubectl_args: str) -> bool:
+        """ Check if remote path exists
+
+        Args:
+            container (str): Container name
+            path (str): Remote path
+            kubectl_args (str): kubectl arguments
+
+        Returns:
+            bool: True when path exists
+        """
+        self._verbose('Checking if remote path exists...')
+        cmd = (f'{_kubectl_path()} exec -i {kubectl_args} '
+               f'-c {container} '
+               f'-- sh -c "[ -f {path} ] || [ -d {path} ]"')
+        self._verbose(f'  Command: {cmd}')
+        try:
+            if subprocess.run(shlex.split(cmd), check=True,
+                              capture_output=True).returncode == 0:
+                return True
+        except subprocess.CalledProcessError:
+            print(f'  Not found: {path}')
+            return False
 
 
 def _detect_direction(src_path, dst_path) -> Direction:
