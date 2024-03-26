@@ -339,6 +339,7 @@ class Main():
             if subprocess.run(shlex.split(cmd), check=True,
                               capture_output=True).returncode == 0:
                 return True
+            return False
         except subprocess.CalledProcessError:
             print(f'  Not found: {path}')
             return False
