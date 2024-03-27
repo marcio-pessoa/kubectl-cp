@@ -44,7 +44,7 @@ class FileSystem(Enum):
 class Main():
     """ Main class """
 
-    __version__ = '0.2.2-83'
+    __version__ = '0.2.3-87'
     __date__ = '2024-03-27'
 
     def __init__(self):
@@ -267,7 +267,6 @@ class Main():
         dst_directories = _summarize_directory_structure(files)
         for i in dst_directories:
             relpath = os.path.relpath(i, os.path.dirname(src_dir))
-            print(relpath)
             _create_directory(os.path.join(dst_dir, relpath))
 
         self._verbose(files)
@@ -386,7 +385,6 @@ def _create_directory(path: str) -> bool:
         os.makedirs(path)
         return False
     except FileExistsError:
-        print(f'    Directory {path} already exists.')
         return True
 
 
