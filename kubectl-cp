@@ -54,6 +54,46 @@ class Main():
         self.__dst_path: str = None
         self.__src_basepath: str = None
 
+        args = self.__parser().parse_args()
+        self.__verbose = args.verbose
+
+        direction = _detect_direction(args.src_path, args.dst_path)
+        self._set_direction_env(direction, args.src_path, args.dst_path)
+
+        self._verbose(f'direction: {direction.name}')
+        self._verbose(f'container: {self.__container}')
+        self._verbose(f'source: {self.__src_path}')
+        self._verbose(f'destination: {self.__dst_path}')
+        self._verbose(f'arguments: {args.arguments}')
+
+        result = 1
+        if direction == Direction.download and not args.recursive:
+            result = self.from_container_to_localhost(
+                self.__container, self.__src_path, self.__dst_path,
+                args.arguments
+            )
+        elif direction == Direction.upload and not args.recursive:
+            result = self.from_localhost_to_container(
+                self.__container, self.__src_path, self.__dst_path,
+                args.arguments
+            )
+        elif direction == Direction.download and args.recursive:
+            self.__src_basepath = os.path.basename(self.__src_path)
+            result = self.from_container_directory_to_localhost(
+                self.__container, self.__src_path, self.__dst_path,
+                args.arguments
+            )
+        elif direction == Direction.upload and args.recursive:
+            result = self.from_localhost_directory_to_container(
+                self.__container, self.__src_path, self.__dst_path,
+                args.arguments
+            )
+        else:
+            print('Invalid input.')
+
+        sys.exit(result)
+
+    def __parser(self) -> argparse.ArgumentParser:
         parser = argparse.ArgumentParser(
             prog='kubectl-cp',
             description=(
@@ -103,45 +143,7 @@ class Main():
                 f'kubectl-cp {self.__version__} {self.__date__}'
             ),
         )
-
-        args = parser.parse_args()
-        self.__verbose = args.verbose
-
-        direction = _detect_direction(args.src_path, args.dst_path)
-        self._set_direction_env(direction, args.src_path, args.dst_path)
-
-        self._verbose(f'direction: {direction.name}')
-        self._verbose(f'container: {self.__container}')
-        self._verbose(f'source: {self.__src_path}')
-        self._verbose(f'destination: {self.__dst_path}')
-        self._verbose(f'arguments: {args.arguments}')
-
-        result = 1
-        if direction == Direction.download and not args.recursive:
-            result = self.from_container_to_localhost(
-                self.__container, self.__src_path, self.__dst_path,
-                args.arguments
-            )
-        elif direction == Direction.upload and not args.recursive:
-            result = self.from_localhost_to_container(
-                self.__container, self.__src_path, self.__dst_path,
-                args.arguments
-            )
-        elif direction == Direction.download and args.recursive:
-            self.__src_basepath = os.path.basename(self.__src_path)
-            result = self.from_container_directory_to_localhost(
-                self.__container, self.__src_path, self.__dst_path,
-                args.arguments
-            )
-        elif direction == Direction.upload and args.recursive:
-            result = self.from_localhost_directory_to_container(
-                self.__container, self.__src_path, self.__dst_path,
-                args.arguments
-            )
-        else:
-            print('Invalid input.')
-
-        sys.exit(result)
+        return parser
 
     def _verbose(self, message):
         if self.__verbose:
