@@ -44,8 +44,8 @@ class FileSystem(Enum):
 class Main():
     """ Main class """
 
-    __version__ = '0.2.1-80'
-    __date__ = '2024-03-21'
+    __version__ = '0.2.1-83'
+    __date__ = '2024-03-27'
 
     def __init__(self):
         self.__verbose = False
@@ -365,7 +365,7 @@ def _kubectl_path():
     sys.exit('kubectl: command not found')
 
 
-def _create_directory(dst_path: str) -> bool:
+def _create_directory(path: str) -> bool:
     """ Create directory
 
     Args:
@@ -375,10 +375,10 @@ def _create_directory(dst_path: str) -> bool:
         bool: False on OK
     """
     try:
-        os.mkdir(dst_path)
+        os.mkdir(path)
         return False
     except FileExistsError:
-        print(f'    Directory {dst_path} already exists.')
+        print(f'    Directory {path} already exists.')
         return True
 
 
