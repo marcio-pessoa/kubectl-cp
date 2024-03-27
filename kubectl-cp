@@ -44,7 +44,7 @@ class FileSystem(Enum):
 class Main():
     """ Main class """
 
-    __version__ = '0.2.1-83'
+    __version__ = '0.2.2-83'
     __date__ = '2024-03-27'
 
     def __init__(self):
