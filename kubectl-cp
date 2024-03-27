@@ -196,7 +196,8 @@ class Main():
             return _save_file(dst_path, result.stdout)
         if file_type == FileSystem.directory:
             self._verbose(f'  Creating directory {dst_path}...')
-            return _create_directory(dst_path)
+            _create_directory(dst_path)
+            return False
 
         return True
 
@@ -250,7 +251,7 @@ class Main():
         self._verbose('Fetching file list...')
         cmd = (f'{_kubectl_path()} exec -i {kubectl_args} '
                f'-c {container} '
-               f'-- sh -c "ls -1dR {src_dir}/*"')
+               f'-- sh -c "find {src_dir}"')
         self._verbose(f'  Command: {cmd}')
         try:
             result = subprocess.run(shlex.split(cmd),
@@ -263,6 +264,13 @@ class Main():
         files.insert(0, src_dir)
         files = [x for x in files if x != '']
 
+        dst_directories = _summarize_directory_structure(files)
+        for i in dst_directories:
+            relpath = os.path.relpath(i, os.path.dirname(src_dir))
+            print(relpath)
+            _create_directory(os.path.join(dst_dir, relpath))
+
+        self._verbose(files)
         for src_path in files:
             dst_path = os.path.join(
                 dst_dir,
@@ -375,7 +383,7 @@ def _create_directory(path: str) -> bool:
         bool: False on OK
     """
     try:
-        os.mkdir(path)
+        os.makedirs(path)
         return False
     except FileExistsError:
         print(f'    Directory {path} already exists.')
