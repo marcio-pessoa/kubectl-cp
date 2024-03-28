@@ -336,7 +336,7 @@ class Copy():
 
         self._verbose('Creating destination directory structure...')
         dst_directories = _summarize_directory_structure(
-            _join_paths(self.__dst_path, files_local))
+            self._join_paths(self.__dst_path, files_local))
 
         for dst_directory in dst_directories:
             cmd = (f'{_kubectl_path()} exec -i {self.__kubectl_args} '
@@ -378,6 +378,12 @@ class Copy():
         except subprocess.CalledProcessError:
             print(f'  Not found: {path}')
             return False
+
+    def _join_paths(self, base_path: str, files: list[str]) -> list[str]:
+        result: list[str] = []
+        for i in files:
+            result.append(os.path.join(base_path, i))
+        return result
 
 
 def _kubectl_path():
@@ -472,13 +478,6 @@ def _list_local_directory_recursively(path: str) \
                 os.path.abspath(os.path.join(dirpath, f)))
 
     return file_names, full_paths
-
-
-def _join_paths(base_path: str, files: list[str]) -> list[str]:
-    result: list[str] = []
-    for i in files:
-        result.append(os.path.join(base_path, i))
-    return result
 
 
 def _summarize_directory_structure(files: list[str]) -> set[str]:
