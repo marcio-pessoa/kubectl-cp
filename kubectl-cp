@@ -65,21 +65,37 @@ class Main():
         self.verbose(f'destination: {self.__dst_path}')
         self.verbose(f'arguments: {args.arguments}')
 
+        result = self.run(direction, args.arguments, args.recursive)
+
+        sys.exit(result)
+
+    def run(self, direction: Direction, kubectl_args: str,
+            recursive: bool) -> bool:
+        """ Run file transfer
+
+        Args:
+            direction (Direction): File transfer direction
+            kubectl_args (str): kubectl arguments
+            recursive (bool): Recursive or not
+
+        Returns:
+            bool: False on OK
+        """
         result = 1
         copy = Copy(self.__container, self.__src_path, self.__dst_path,
-                    args.arguments)
-        if direction == Direction.download and not args.recursive:
+                    kubectl_args)
+
+        if direction == Direction.download and not recursive:
             result = copy.from_container_to_localhost()
-        elif direction == Direction.upload and not args.recursive:
+        elif direction == Direction.upload and not recursive:
             result = copy.from_localhost_to_container()
-        elif direction == Direction.download and args.recursive:
+        elif direction == Direction.download and recursive:
             result = copy.from_container_directory_to_localhost()
-        elif direction == Direction.upload and args.recursive:
+        elif direction == Direction.upload and recursive:
             result = copy.from_localhost_directory_to_container()
         else:
             print('Invalid input.')
-
-        sys.exit(result)
+        return result
 
     def __parser(self) -> argparse.ArgumentParser:
         parser = argparse.ArgumentParser(
