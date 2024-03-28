@@ -81,21 +81,20 @@ class Main():
         Returns:
             bool: False on OK
         """
-        result = 1
         copy = Copy(self.__container, self.__src_path, self.__dst_path,
                     kubectl_args)
 
         if direction == Direction.download and not recursive:
-            result = copy.from_container_to_localhost()
-        elif direction == Direction.upload and not recursive:
-            result = copy.from_localhost_to_container()
-        elif direction == Direction.download and recursive:
-            result = copy.from_container_directory_to_localhost()
-        elif direction == Direction.upload and recursive:
-            result = copy.from_localhost_directory_to_container()
-        else:
-            print('Invalid input.')
-        return result
+            return copy.from_container_to_localhost()
+        if direction == Direction.upload and not recursive:
+            return copy.from_localhost_to_container()
+        if direction == Direction.download and recursive:
+            return copy.from_container_directory_to_localhost()
+        if direction == Direction.upload and recursive:
+            return copy.from_localhost_directory_to_container()
+
+        print('Invalid input.')
+        return True
 
     def __parser(self) -> argparse.ArgumentParser:
         parser = argparse.ArgumentParser(
