@@ -52,7 +52,6 @@ class Main():
         self.__container: str = None
         self.__src_path: str = None
         self.__dst_path: str = None
-        self.__src_basepath: str = None
 
         args = self.__parser().parse_args()
         self.__verbose = args.verbose
@@ -78,7 +77,6 @@ class Main():
                 args.arguments
             )
         elif direction == Direction.download and args.recursive:
-            self.__src_basepath = os.path.basename(self.__src_path)
             result = self.from_container_directory_to_localhost(
                 self.__container, self.__src_path, self.__dst_path,
                 args.arguments
@@ -275,7 +273,7 @@ class Main():
         for src_path in files:
             dst_path = os.path.join(
                 dst_dir,
-                src_path[src_path.index(self.__src_basepath):]
+                src_path[src_path.index(os.path.basename(self.__src_path)):]
             )
             if self.from_container_to_localhost(
                     container, src_path, dst_path, kubectl_args):
