@@ -56,8 +56,8 @@ class Main():
         args = self.__parser().parse_args()
         self.__verbose = args.verbose
 
-        direction = _detect_direction(args.src_path, args.dst_path)
-        self.set_direction_env(direction, args.src_path, args.dst_path)
+        direction = _detect_direction(args.src, args.dst)
+        self.set_direction_env(direction, args.src, args.dst)
 
         self.verbose(f'direction: {direction.name}')
         self.verbose(f'container: {self.__container}')
@@ -119,11 +119,11 @@ class Main():
             ),
         )
         parser.add_argument(
-            'src_path',
+            'src',
             help='Source path'
         )
         parser.add_argument(
-            'dst_path',
+            'dst',
             help='Destination path'
         )
         parser.add_argument(
