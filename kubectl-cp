@@ -232,7 +232,7 @@ class Copy:
         if self.__dst_path == '.':
             self.__dst_path = os.path.basename(self.__src_path)
 
-        cmd = (f'{_kubectl_path()} exec -i {self.__kubectl_args} '
+        cmd = (f'{self.__kubectl_path()} exec -i {self.__kubectl_args} '
                f'-c {self.__container} '
                f'-- cat {self.__src_path}')
         log.debug('  Command: %s', cmd)
@@ -264,7 +264,7 @@ class Copy:
             log.error('%s: file not found.', self.__src_path)
             return True
 
-        cmd = (f'{_kubectl_path()} exec '
+        cmd = (f'{self.__kubectl_path()} exec '
                f'-i {self.__kubectl_args} '
                f'-c {self.__container} '
                f'-- sh -c "tee {self.__dst_path} > /dev/null"')
@@ -285,7 +285,7 @@ class Copy:
             return True
 
         log.info('Fetching file list...')
-        cmd = (f'{_kubectl_path()} exec -i {self.__kubectl_args} '
+        cmd = (f'{self.__kubectl_path()} exec -i {self.__kubectl_args} '
                f'-c {self.__container} '
                f'-- sh -c "find {self.__src_path}"')
         log.debug('  Command: %s', cmd)
@@ -332,7 +332,7 @@ class Copy:
             self.__join_paths(self.__dst_path, files_local))
 
         for dst_directory in dst_directories:
-            cmd = (f'{_kubectl_path()} exec -i {self.__kubectl_args} '
+            cmd = (f'{self.__kubectl_path()} exec -i {self.__kubectl_args} '
                    f'-c {self.__container} '
                    f'-- sh -c "mkdir -p {dst_directory}"')
             log.debug('  Command: %s', cmd)
@@ -359,7 +359,7 @@ class Copy:
             bool: True when path exists
         """
         log.debug('Checking if remote path exists...')
-        cmd = (f'{_kubectl_path()} exec -i {kubectl_args} '
+        cmd = (f'{self.__kubectl_path()} exec -i {kubectl_args} '
                f'-c {container} '
                f'-- sh -c "[ -f {path} ] || [ -d {path} ]"')
         log.debug('  Command: %s', cmd)
@@ -437,6 +437,17 @@ class Copy:
 
         return False
 
+    def __kubectl_path(self):
+        possible_paths = (
+            '/snap/bin/kubectl',
+            '/usr/bin/kubectl',
+            '/usr/local/bin/kubectl',
+        )
+        for path in possible_paths:
+            if os.path.isfile(path):
+                return path
+        sys.exit('kubectl: command not found')
+
 
 class Log:
     """ Log Borg pattern """
@@ -508,18 +519,6 @@ class CustomFormatter(logging.Formatter):
         log_fmt = self.formats.get(record.levelno)
         formatter = logging.Formatter(log_fmt)
         return formatter.format(record)
-
-
-def _kubectl_path():
-    possible_paths = [
-        '/snap/bin/kubectl',
-        '/usr/bin/kubectl',
-        '/usr/local/bin/kubectl',
-    ]
-    for path in possible_paths:
-        if os.path.isfile(path):
-            return path
-    sys.exit('kubectl: command not found')
 
 
 def _create_directory(path: str) -> bool:
