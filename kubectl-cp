@@ -44,54 +44,57 @@ class FileSystem(Enum):
 class Main():
     """ Main class """
 
-    __version__ = '0.2.3-87'
-    __date__ = '2024-03-27'
+    __version__ = '0.2.4-93'
+    __date__ = '2024-03-28'
 
     def __init__(self):
         self.__verbose = False
         self.__container: str = None
         self.__src_path: str = None
         self.__dst_path: str = None
-        self.__src_basepath: str = None
 
         args = self.__parser().parse_args()
         self.__verbose = args.verbose
 
         direction = _detect_direction(args.src_path, args.dst_path)
-        self._set_direction_env(direction, args.src_path, args.dst_path)
+        self.set_direction_env(direction, args.src_path, args.dst_path)
 
-        self._verbose(f'direction: {direction.name}')
-        self._verbose(f'container: {self.__container}')
-        self._verbose(f'source: {self.__src_path}')
-        self._verbose(f'destination: {self.__dst_path}')
-        self._verbose(f'arguments: {args.arguments}')
+        self.verbose(f'direction: {direction.name}')
+        self.verbose(f'container: {self.__container}')
+        self.verbose(f'source: {self.__src_path}')
+        self.verbose(f'destination: {self.__dst_path}')
+        self.verbose(f'arguments: {args.arguments}')
 
-        result = 1
-        if direction == Direction.download and not args.recursive:
-            result = self.from_container_to_localhost(
-                self.__container, self.__src_path, self.__dst_path,
-                args.arguments
-            )
-        elif direction == Direction.upload and not args.recursive:
-            result = self.from_localhost_to_container(
-                self.__container, self.__src_path, self.__dst_path,
-                args.arguments
-            )
-        elif direction == Direction.download and args.recursive:
-            self.__src_basepath = os.path.basename(self.__src_path)
-            result = self.from_container_directory_to_localhost(
-                self.__container, self.__src_path, self.__dst_path,
-                args.arguments
-            )
-        elif direction == Direction.upload and args.recursive:
-            result = self.from_localhost_directory_to_container(
-                self.__container, self.__src_path, self.__dst_path,
-                args.arguments
-            )
-        else:
-            print('Invalid input.')
+        result = self.run(direction, args.arguments, args.recursive)
 
         sys.exit(result)
+
+    def run(self, direction: Direction, kubectl_args: str,
+            recursive: bool) -> bool:
+        """ Run file transfer
+
+        Args:
+            direction (Direction): File transfer direction
+            kubectl_args (str): kubectl arguments
+            recursive (bool): Recursive or not
+
+        Returns:
+            bool: False on OK
+        """
+        copy = Copy(self.__container, self.__src_path, self.__dst_path,
+                    kubectl_args)
+
+        if direction == Direction.download and not recursive:
+            return copy.from_container_to_localhost()
+        if direction == Direction.upload and not recursive:
+            return copy.from_localhost_to_container()
+        if direction == Direction.download and recursive:
+            return copy.from_container_directory_to_localhost()
+        if direction == Direction.upload and recursive:
+            return copy.from_localhost_directory_to_container()
+
+        print('Invalid input.')
+        return True
 
     def __parser(self) -> argparse.ArgumentParser:
         parser = argparse.ArgumentParser(
@@ -117,10 +120,12 @@ class Main():
         )
         parser.add_argument(
             'src_path',
-            help='Source path')
+            help='Source path'
+        )
         parser.add_argument(
             'dst_path',
-            help='Destination path')
+            help='Destination path'
+        )
         parser.add_argument(
             '-a', '--arguments',
             help='kubectl arguments'
@@ -139,17 +144,28 @@ class Main():
             '-V', '--version',
             action='version',
             help='show version information and exit',
-            version=(
-                f'kubectl-cp {self.__version__} {self.__date__}'
-            ),
+            version=(f'kubectl-cp {self.__version__} {self.__date__}'),
         )
         return parser
 
-    def _verbose(self, message):
+    def verbose(self, message: str):
+        """ Log message
+
+        Args:
+            message (str): Text message
+        """
         if self.__verbose:
             print(message)
 
-    def _set_direction_env(self, direction, src_path, dst_path):
+    def set_direction_env(self, direction: Direction,
+                          src_path: str, dst_path: str):
+        """ Set transfer direction variables
+
+        Args:
+            direction (Direction): File transfer direction
+            src_path (str): Source path
+            dst_path (str): Destination path
+        """
         if direction == Direction.download:
             self.__container = _split_container_and_file(src_path)[0]
             self.__src_path = _split_container_and_file(src_path)[1]
@@ -159,31 +175,46 @@ class Main():
             self.__src_path = src_path
             self.__dst_path = _split_container_and_file(dst_path)[1]
 
-    def from_container_to_localhost(self, container: str,
-                                    src_path: str, dst_path: str,
-                                    kubectl_args: str) -> bool:
+
+class Copy():
+    """ Copy files from/to containers
+
+    Args:
+        container (str): Container name
+        src_path (str): Source file
+        dst_path (str): Destination file
+        kubectl_args (str): kubectl arguments
+    """
+
+    def __init__(self, container: str, src_path: str, dst_path: str,
+                 kubectl_args: str) -> None:
+        self.__verbose = False
+        self.__container = container
+        self.__src_path = src_path
+        self.__dst_path = dst_path
+        self.__kubectl_args = kubectl_args
+
+    def _verbose(self, message):
+        if self.__verbose:
+            print(message)
+
+    def from_container_to_localhost(self) -> bool:
         """ Copy a file from container to localhost
-
-        Args:
-            container (str): Container name
-            src_path (str): Source file
-            dst_path (str): Destination file
-            kubectl_args (str): kubectl arguments
-
         Returns:
             bool: False on OK
         """
-        if not self.__check_remote_path(container, src_path, kubectl_args):
+        if not self.__check_remote_path(self.__container, self.__src_path,
+                                        self.__kubectl_args):
             return True
 
-        self._verbose(f'Copying {src_path}...')
+        self._verbose(f'Copying {self.__src_path}...')
 
-        if dst_path == '.':
-            dst_path = os.path.basename(src_path)
+        if self.__dst_path == '.':
+            self.__dst_path = os.path.basename(self.__src_path)
 
-        cmd = (f'{_kubectl_path()} exec -i {kubectl_args} '
-               f'-c {container} '
-               f'-- cat {src_path}')
+        cmd = (f'{_kubectl_path()} exec -i {self.__kubectl_args} '
+               f'-c {self.__container} '
+               f'-- cat {self.__src_path}')
         self._verbose(f'  Command: {cmd}')
 
         file_type = FileSystem.unknown
@@ -195,37 +226,28 @@ class Main():
             file_type = FileSystem.directory
 
         if file_type == FileSystem.file:
-            return _save_file(dst_path, result.stdout)
+            return _save_file(self.__dst_path, result.stdout)
         if file_type == FileSystem.directory:
-            self._verbose(f'  Creating directory {dst_path}...')
-            _create_directory(dst_path)
+            self._verbose(f'  Creating directory {self.__dst_path}...')
+            _create_directory(self.__dst_path)
             return False
 
         return True
 
-    def from_localhost_to_container(self, container: str,
-                                    src_path: str, dst_path: str,
-                                    kubectl_args: str) -> bool:
+    def from_localhost_to_container(self) -> bool:
         """ Copy a file from localhost to container
-
-        Args:
-            container (str): Container name
-            src_path (str): Source file
-            dst_path (str): Destination file
-            kubectl_args (str): kubectl arguments
-
         Returns:
             bool: False on OK
         """
-        content = _read_file(src_path)
+        content = _read_file(self.__src_path)
         if not content:
-            print(f'{src_path}: file not found.')
+            print(f'{self.__src_path}: file not found.')
             return True
 
         cmd = (f'{_kubectl_path()} exec '
-               f'-i {kubectl_args} '
-               f'-c {container} '
-               f'-- sh -c "tee {dst_path} > /dev/null"')
+               f'-i {self.__kubectl_args} '
+               f'-c {self.__container} '
+               f'-- sh -c "tee {self.__dst_path} > /dev/null"')
         self._verbose(f'  Command: {cmd}')
 
         result = subprocess.run(shlex.split(cmd), input=content,
@@ -233,27 +255,19 @@ class Main():
 
         return result.returncode
 
-    def from_container_directory_to_localhost(self, container: str,
-                                              src_dir: str, dst_dir: str,
-                                              kubectl_args: str) -> bool:
+    def from_container_directory_to_localhost(self) -> bool:
         """ Copy a directory and contents from container to localhost
-
-        Args:
-            container (str): Container name
-            src_dir (str): Source directory
-            dst_dir (str): Destination directory
-            kubectl_args (str): kubectl arguments
-
         Returns:
             bool: False on OK
         """
-        if not self.__check_remote_path(container, src_dir, kubectl_args):
+        if not self.__check_remote_path(self.__container, self.__src_path,
+                                        self.__kubectl_args):
             return True
 
         self._verbose('Fetching file list...')
-        cmd = (f'{_kubectl_path()} exec -i {kubectl_args} '
-               f'-c {container} '
-               f'-- sh -c "find {src_dir}"')
+        cmd = (f'{_kubectl_path()} exec -i {self.__kubectl_args} '
+               f'-c {self.__container} '
+               f'-- sh -c "find {self.__src_path}"')
         self._verbose(f'  Command: {cmd}')
         try:
             result = subprocess.run(shlex.split(cmd),
@@ -263,52 +277,43 @@ class Main():
             return True
 
         files = result.stdout.decode().split("\n")
-        files.insert(0, src_dir)
+        files.insert(0, self.__src_path)
         files = [x for x in files if x != '']
 
         dst_directories = _summarize_directory_structure(files)
         for i in dst_directories:
-            relpath = os.path.relpath(i, os.path.dirname(src_dir))
-            _create_directory(os.path.join(dst_dir, relpath))
+            relpath = os.path.relpath(i, os.path.dirname(self.__src_path))
+            _create_directory(os.path.join(self.__dst_path, relpath))
 
         self._verbose(files)
         for src_path in files:
             dst_path = os.path.join(
-                dst_dir,
-                src_path[src_path.index(self.__src_basepath):]
+                self.__dst_path,
+                src_path[src_path.index(os.path.basename(self.__src_path)):]
             )
-            if self.from_container_to_localhost(
-                    container, src_path, dst_path, kubectl_args):
+            if Copy(self.__container, src_path, dst_path,
+                    self.__kubectl_args).from_container_to_localhost():
                 return True
 
         return False
 
-    def from_localhost_directory_to_container(self, container: str,
-                                              src_dir: str, dst_dir: str,
-                                              kubectl_args: str) -> bool:
+    def from_localhost_directory_to_container(self) -> bool:
         """ Copy a directory and contents from localhost to container
-
-        Args:
-            container (str): Container name
-            src_dir (str): Source directory
-            dst_dir (str): Destination directory
-            kubectl_args (str): kubectl arguments
-
         Returns:
             bool: False on OK
         """
         self._verbose('Fetching file list...')
         files_local, files_full_path = \
-            _list_local_directory_recursively(src_dir)
+            _list_local_directory_recursively(self.__src_path)
         self._verbose(files_local)
 
         self._verbose('Creating destination directory structure...')
         dst_directories = _summarize_directory_structure(
-            _join_paths(dst_dir, files_local))
+            _join_paths(self.__dst_path, files_local))
 
         for dst_directory in dst_directories:
-            cmd = (f'{_kubectl_path()} exec -i {kubectl_args} '
-                   f'-c {container} '
+            cmd = (f'{_kubectl_path()} exec -i {self.__kubectl_args} '
+                   f'-c {self.__container} '
                    f'-- sh -c "mkdir -p {dst_directory}"')
             self._verbose(f'  Command: {cmd}')
             try:
@@ -319,10 +324,10 @@ class Main():
                 return True
 
         for file_name, src_path in zip(files_local, files_full_path):
-            dst_path = os.path.join(dst_dir, file_name)
+            dst_path = os.path.join(self.__dst_path, file_name)
 
-            if self.from_localhost_to_container(
-                    container, src_path, dst_path, kubectl_args):
+            if Copy(self.__container, src_path, dst_path,
+                    self.__kubectl_args).from_localhost_to_container():
                 return True
 
         return False
@@ -330,12 +335,6 @@ class Main():
     def __check_remote_path(self, container: str, path: str,
                             kubectl_args: str) -> bool:
         """ Check if remote path exists
-
-        Args:
-            container (str): Container name
-            path (str): Remote path
-            kubectl_args (str): kubectl arguments
-
         Returns:
             bool: True when path exists
         """
