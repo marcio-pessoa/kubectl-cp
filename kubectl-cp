@@ -331,12 +331,12 @@ class Copy():
         """
         self._verbose('Fetching file list...')
         files_local, files_full_path = \
-            self._list_local_directory_recursively(self.__src_path)
+            self.__list_local_directory_recursively(self.__src_path)
         self._verbose(files_local)
 
         self._verbose('Creating destination directory structure...')
         dst_directories = _summarize_directory_structure(
-            self._join_paths(self.__dst_path, files_local))
+            self.__join_paths(self.__dst_path, files_local))
 
         for dst_directory in dst_directories:
             cmd = (f'{_kubectl_path()} exec -i {self.__kubectl_args} '
@@ -379,13 +379,13 @@ class Copy():
             print(f'  Not found: {path}')
             return False
 
-    def _join_paths(self, base_path: str, files: list[str]) -> list[str]:
+    def __join_paths(self, base_path: str, files: list[str]) -> list[str]:
         result: list[str] = []
         for i in files:
             result.append(os.path.join(base_path, i))
         return result
 
-    def _list_local_directory_recursively(self, path: str) \
+    def __list_local_directory_recursively(self, path: str) \
             -> tuple[list[str], list[str]]:
         """ List local directory recursively
 
