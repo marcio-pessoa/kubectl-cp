@@ -303,7 +303,7 @@ class Copy:
         files.insert(0, self.__src_path)
         files = [x for x in files if x != '']
 
-        dst_directories = _summarize_directory_structure(files)
+        dst_directories = self.__summarize_directory_structure(files)
         for i in dst_directories:
             relpath = os.path.relpath(i, os.path.dirname(self.__src_path))
             self.__create_directory(os.path.join(self.__dst_path, relpath))
@@ -331,7 +331,7 @@ class Copy:
         log.debug(files_local)
 
         log.info('Creating destination directory structure...')
-        dst_directories = _summarize_directory_structure(
+        dst_directories = self.__summarize_directory_structure(
             self.__join_paths(self.__dst_path, files_local))
 
         for dst_directory in dst_directories:
@@ -466,6 +466,12 @@ class Copy:
         except FileExistsError:
             return True
 
+    def __summarize_directory_structure(self, files: list[str]) -> set[str]:
+        result: list[str] = []
+        for i in files:
+            result.append(os.path.dirname(i))
+        return set(result)
+
 
 class Log:
     """ Log Borg pattern """
@@ -537,13 +543,6 @@ class CustomFormatter(logging.Formatter):
         log_fmt = self.formats.get(record.levelno)
         formatter = logging.Formatter(log_fmt)
         return formatter.format(record)
-
-
-def _summarize_directory_structure(files: list[str]) -> set[str]:
-    result: list[str] = []
-    for i in files:
-        result.append(os.path.dirname(i))
-    return set(result)
 
 
 log = Log().logger
