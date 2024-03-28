@@ -43,7 +43,7 @@ class FileSystem(Enum):
     symbolic_link = 4
 
 
-class Main:  # pylint: disable=too-few-public-methods
+class Main:
     """ Main class """
 
     __version__ = '0.2.4-93'
