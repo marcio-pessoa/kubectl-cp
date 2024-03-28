@@ -41,7 +41,7 @@ class FileSystem(Enum):
     symbolic_link = 4
 
 
-class Main():
+class Main:
     """ Main class """
 
     __version__ = '0.2.4-93'
@@ -203,7 +203,7 @@ class CopyFacade:
         return Direction.invalid
 
 
-class Copy():
+class Copy:
     """ Copy files from/to containers
 
     Args:
