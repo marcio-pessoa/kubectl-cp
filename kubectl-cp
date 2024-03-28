@@ -147,7 +147,7 @@ class CopyFacade:
         self.__dst_path: str
         self.__kubectl_args: str = kubectl_args
         self.__recursive: bool = recursive
-        self.__direction: Direction = self._detect_direction(src, dst)
+        self.__direction: Direction = self.__detect_direction(src, dst)
         self.set_direction_env(src, dst)
 
     def run(self) -> bool:
@@ -179,13 +179,13 @@ class CopyFacade:
             dst (str): Destination path
         """
         if self.__direction == Direction.download:
-            self.__container = _split_container_and_file(src)[0]
-            self.__src_path = _split_container_and_file(src)[1]
+            self.__container = self.__split_container_and_file(src)[0]
+            self.__src_path = self.__split_container_and_file(src)[1]
             self.__dst_path = dst
         elif self.__direction == Direction.upload:
-            self.__container = _split_container_and_file(dst)[0]
+            self.__container = self.__split_container_and_file(dst)[0]
             self.__src_path = src
-            self.__dst_path = _split_container_and_file(dst)[1]
+            self.__dst_path = self.__split_container_and_file(dst)[1]
 
         log.info('direction: %s', self.__direction.name)
         log.info('container: %s', self.__container)
@@ -193,12 +193,15 @@ class CopyFacade:
         log.info('destination: %s', self.__dst_path)
         log.info('arguments: %s', self.__kubectl_args)
 
-    def _detect_direction(self, src, dst) -> Direction:
-        if len(_split_container_and_file(src)) > 1:
+    def __detect_direction(self, src, dst) -> Direction:
+        if len(self.__split_container_and_file(src)) > 1:
             return Direction.download
-        if len(_split_container_and_file(dst)) > 1:
+        if len(self.__split_container_and_file(dst)) > 1:
             return Direction.upload
         return Direction.invalid
+
+    def __split_container_and_file(self, path: str) -> list:
+        return path.split(':', 1)
 
 
 class Copy:
@@ -249,7 +252,7 @@ class Copy:
             return self.__save_file(self.__dst_path, result.stdout)
         if file_type == FileSystem.directory:
             log.debug('  Creating directory %s...', self.__dst_path)
-            _create_directory(self.__dst_path)
+            self.__create_directory(self.__dst_path)
             return False
 
         return True
@@ -303,7 +306,7 @@ class Copy:
         dst_directories = _summarize_directory_structure(files)
         for i in dst_directories:
             relpath = os.path.relpath(i, os.path.dirname(self.__src_path))
-            _create_directory(os.path.join(self.__dst_path, relpath))
+            self.__create_directory(os.path.join(self.__dst_path, relpath))
 
         log.debug(files)
         for src_path in files:
@@ -448,6 +451,21 @@ class Copy:
                 return path
         sys.exit('kubectl: command not found')
 
+    def __create_directory(self, path: str) -> bool:
+        """ Create directory
+
+        Args:
+            dst_path (str): Directory name
+
+        Returns:
+            bool: False on OK
+        """
+        try:
+            os.makedirs(path)
+            return False
+        except FileExistsError:
+            return True
+
 
 class Log:
     """ Log Borg pattern """
@@ -519,26 +537,6 @@ class CustomFormatter(logging.Formatter):
         log_fmt = self.formats.get(record.levelno)
         formatter = logging.Formatter(log_fmt)
         return formatter.format(record)
-
-
-def _create_directory(path: str) -> bool:
-    """ Create directory
-
-    Args:
-        dst_path (str): Directory name
-
-    Returns:
-        bool: False on OK
-    """
-    try:
-        os.makedirs(path)
-        return False
-    except FileExistsError:
-        return True
-
-
-def _split_container_and_file(path: str) -> list:
-    return path.split(':', 1)
 
 
 def _summarize_directory_structure(files: list[str]) -> set[str]:
