@@ -49,13 +49,18 @@ class Main():
 
     def __init__(self):
         self.__verbose = False
-        args = self.__parser().parse_args()
+        args = self.parser().parse_args()
         self.__verbose = args.verbose
         result = CopyFacade(args.src, args.dst,
                             args.arguments, args.recursive).run()
         sys.exit(result)
 
-    def __parser(self) -> argparse.ArgumentParser:
+    def parser(self) -> argparse.ArgumentParser:
+        """ Deal with argparse
+
+        Returns:
+            argparse.ArgumentParser: argparse object
+        """
         parser = argparse.ArgumentParser(
             prog='kubectl-cp',
             description=(
@@ -135,7 +140,7 @@ class CopyFacade:
         self.__dst_path: str
         self.__kubectl_args: str = kubectl_args
         self.__recursive: bool = recursive
-        self.__direction: Direction = _detect_direction(src, dst)
+        self.__direction: Direction = self._detect_direction(src, dst)
         self.set_direction_env(src, dst)
 
     def run(self) -> bool:
@@ -189,6 +194,13 @@ class CopyFacade:
         """
         if self.__verbose:
             print(message)
+
+    def _detect_direction(self, src, dst) -> Direction:
+        if len(_split_container_and_file(src)) > 1:
+            return Direction.download
+        if len(_split_container_and_file(dst)) > 1:
+            return Direction.upload
+        return Direction.invalid
 
 
 class Copy():
@@ -366,14 +378,6 @@ class Copy():
         except subprocess.CalledProcessError:
             print(f'  Not found: {path}')
             return False
-
-
-def _detect_direction(src_path, dst_path) -> Direction:
-    if len(_split_container_and_file(src_path)) > 1:
-        return Direction.download
-    if len(_split_container_and_file(dst_path)) > 1:
-        return Direction.upload
-    return Direction.invalid
 
 
 def _kubectl_path():
