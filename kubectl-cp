@@ -117,10 +117,12 @@ class Main():
         )
         parser.add_argument(
             'src_path',
-            help='Source path')
+            help='Source path'
+        )
         parser.add_argument(
             'dst_path',
-            help='Destination path')
+            help='Destination path'
+        )
         parser.add_argument(
             '-a', '--arguments',
             help='kubectl arguments'
@@ -139,9 +141,7 @@ class Main():
             '-V', '--version',
             action='version',
             help='show version information and exit',
-            version=(
-                f'kubectl-cp {self.__version__} {self.__date__}'
-            ),
+            version=(f'kubectl-cp {self.__version__} {self.__date__}'),
         )
         return parser
 
