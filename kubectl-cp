@@ -473,9 +473,6 @@ class CustomFormatter(logging.Formatter):
         return formatter.format(record)
 
 
-log = Log().logger
-
-
 def _kubectl_path():
     possible_paths = [
         '/snap/bin/kubectl',
@@ -553,6 +550,8 @@ def _summarize_directory_structure(files: list[str]) -> set[str]:
         result.append(os.path.dirname(i))
     return set(result)
 
+
+log = Log().logger
 
 if __name__ == '__main__':
     Main()
