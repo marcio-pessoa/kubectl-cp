@@ -49,52 +49,11 @@ class Main():
 
     def __init__(self):
         self.__verbose = False
-        self.__container: str = None
-        self.__src_path: str = None
-        self.__dst_path: str = None
-
         args = self.__parser().parse_args()
         self.__verbose = args.verbose
-
-        direction = _detect_direction(args.src, args.dst)
-        self.set_direction_env(direction, args.src, args.dst)
-
-        self.verbose(f'direction: {direction.name}')
-        self.verbose(f'container: {self.__container}')
-        self.verbose(f'source: {self.__src_path}')
-        self.verbose(f'destination: {self.__dst_path}')
-        self.verbose(f'arguments: {args.arguments}')
-
-        result = self.run(direction, args.arguments, args.recursive)
-
+        result = CopyFacade(args.src, args.dst,
+                            args.arguments, args.recursive).run()
         sys.exit(result)
-
-    def run(self, direction: Direction, kubectl_args: str,
-            recursive: bool) -> bool:
-        """ Run file transfer
-
-        Args:
-            direction (Direction): File transfer direction
-            kubectl_args (str): kubectl arguments
-            recursive (bool): Recursive or not
-
-        Returns:
-            bool: False on OK
-        """
-        copy = Copy(self.__container, self.__src_path, self.__dst_path,
-                    kubectl_args)
-
-        if direction == Direction.download and not recursive:
-            return copy.from_container_to_localhost()
-        if direction == Direction.upload and not recursive:
-            return copy.from_localhost_to_container()
-        if direction == Direction.download and recursive:
-            return copy.from_container_directory_to_localhost()
-        if direction == Direction.upload and recursive:
-            return copy.from_localhost_directory_to_container()
-
-        print('Invalid input.')
-        return True
 
     def __parser(self) -> argparse.ArgumentParser:
         parser = argparse.ArgumentParser(
@@ -157,23 +116,79 @@ class Main():
         if self.__verbose:
             print(message)
 
-    def set_direction_env(self, direction: Direction,
-                          src_path: str, dst_path: str):
+
+class CopyFacade:
+    """ Copy Facade class
+
+    Args:
+        src (str): Source path
+        dst (str): Destination path
+        kubectl_args (str): kubectl arguments
+        recursive (bool): Recursion
+    """
+
+    def __init__(self, src: str, dst: str, kubectl_args: str,
+                 recursive: bool):
+        self.__verbose = False
+        self.__container: str
+        self.__src_path: str
+        self.__dst_path: str
+        self.__kubectl_args: str = kubectl_args
+        self.__recursive: bool = recursive
+        self.__direction: Direction = _detect_direction(src, dst)
+        self.set_direction_env(src, dst)
+
+    def run(self) -> bool:
+        """ Run file transfer
+
+        Returns:
+            bool: False on OK
+        """
+        copy = Copy(self.__container, self.__src_path, self.__dst_path,
+                    self.__kubectl_args)
+
+        if self.__direction == Direction.download and not self.__recursive:
+            return copy.from_container_to_localhost()
+        if self.__direction == Direction.upload and not self.__recursive:
+            return copy.from_localhost_to_container()
+        if self.__direction == Direction.download and self.__recursive:
+            return copy.from_container_directory_to_localhost()
+        if self.__direction == Direction.upload and self.__recursive:
+            return copy.from_localhost_directory_to_container()
+
+        print('Invalid input.')
+        return True
+
+    def set_direction_env(self, src: str, dst: str):
         """ Set transfer direction variables
 
         Args:
-            direction (Direction): File transfer direction
-            src_path (str): Source path
-            dst_path (str): Destination path
+            src (str): Source path
+            dst (str): Destination path
         """
-        if direction == Direction.download:
-            self.__container = _split_container_and_file(src_path)[0]
-            self.__src_path = _split_container_and_file(src_path)[1]
-            self.__dst_path = dst_path
-        elif direction == Direction.upload:
-            self.__container = _split_container_and_file(dst_path)[0]
-            self.__src_path = src_path
-            self.__dst_path = _split_container_and_file(dst_path)[1]
+        if self.__direction == Direction.download:
+            self.__container = _split_container_and_file(src)[0]
+            self.__src_path = _split_container_and_file(src)[1]
+            self.__dst_path = dst
+        elif self.__direction == Direction.upload:
+            self.__container = _split_container_and_file(dst)[0]
+            self.__src_path = src
+            self.__dst_path = _split_container_and_file(dst)[1]
+
+        self.verbose(f'direction: {self.__direction.name}')
+        self.verbose(f'container: {self.__container}')
+        self.verbose(f'source: {self.__src_path}')
+        self.verbose(f'destination: {self.__dst_path}')
+        self.verbose(f'arguments: {self.__kubectl_args}')
+
+    def verbose(self, message: str):
+        """ Log message
+
+        Args:
+            message (str): Text message
+        """
+        if self.__verbose:
+            print(message)
 
 
 class Copy():
@@ -181,8 +196,8 @@ class Copy():
 
     Args:
         container (str): Container name
-        src_path (str): Source file
-        dst_path (str): Destination file
+        src_path (str): Source path
+        dst_path (str): Destination path
         kubectl_args (str): kubectl arguments
     """
 
