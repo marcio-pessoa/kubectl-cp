@@ -52,12 +52,7 @@ class Main:  # pylint: disable=too-few-public-methods
 
     def __init__(self):
         args = self.parser().parse_args()
-
-        Log().name = self.__name
-        Log().verbosity = 'WARNING'
-        Log().start()
-        Log().verbosity = args.verbosity
-
+        self.log(args.verbosity)
         result = CopyFacade(args.src, args.dst,
                             args.arguments, args.recursive).run()
         sys.exit(result)
@@ -123,6 +118,16 @@ class Main:  # pylint: disable=too-few-public-methods
             version=(f'kubectl-cp {self.__version__} {self.__date__}'),
         )
         return parser
+
+    def log(self, verbosity: str):
+        """ Start Log Borg
+
+        Args:
+            verbosity (str): verbosity level
+        """
+        Log().name = self.__name
+        Log().verbosity = verbosity
+        Log().start()
 
 
 class CopyFacade:
