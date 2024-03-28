@@ -331,7 +331,7 @@ class Copy():
         """
         self._verbose('Fetching file list...')
         files_local, files_full_path = \
-            _list_local_directory_recursively(self.__src_path)
+            self._list_local_directory_recursively(self.__src_path)
         self._verbose(files_local)
 
         self._verbose('Creating destination directory structure...')
@@ -384,6 +384,28 @@ class Copy():
         for i in files:
             result.append(os.path.join(base_path, i))
         return result
+
+    def _list_local_directory_recursively(self, path: str) \
+            -> tuple[list[str], list[str]]:
+        """ List local directory recursively
+
+        Args:
+            path (str): Work directory
+
+        Returns:
+            tuple[list, list]: Lists of files and with full path
+        """
+        file_names: list[str] = []
+        full_paths: list[str] = []
+
+        for dirpath, _, filenames in os.walk(path):
+            for f in filenames:
+                file_names.append(
+                    os.path.join(dirpath, f))
+                full_paths.append(
+                    os.path.abspath(os.path.join(dirpath, f)))
+
+        return file_names, full_paths
 
 
 def _kubectl_path():
@@ -455,29 +477,6 @@ def _save_file(file_path: str, content: bytes) -> bool:
 
 def _split_container_and_file(path: str) -> list:
     return path.split(':', 1)
-
-
-def _list_local_directory_recursively(path: str) \
-        -> tuple[list[str], list[str]]:
-    """ List local directory recursively
-
-    Args:
-        path (str): Work directory
-
-    Returns:
-        tuple[list, list]: Lists of files and with full path
-    """
-    file_names: list[str] = []
-    full_paths: list[str] = []
-
-    for dirpath, _, filenames in os.walk(path):
-        for f in filenames:
-            file_names.append(
-                os.path.join(dirpath, f))
-            full_paths.append(
-                os.path.abspath(os.path.join(dirpath, f)))
-
-    return file_names, full_paths
 
 
 def _summarize_directory_structure(files: list[str]) -> set[str]:
