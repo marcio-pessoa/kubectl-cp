@@ -14,6 +14,8 @@ import os
 import shlex
 import sys
 import subprocess
+import logging
+import logging.handlers
 
 
 class Direction(Enum):
@@ -41,64 +43,28 @@ class FileSystem(Enum):
     symbolic_link = 4
 
 
-class Main():
+class Main:
     """ Main class """
 
-    __version__ = '0.2.4-93'
+    __version__ = '0.2.5-106'
     __date__ = '2024-03-28'
+    __name = 'kubectl-cp'
 
     def __init__(self):
-        self.__verbose = False
-        self.__container: str = None
-        self.__src_path: str = None
-        self.__dst_path: str = None
-
-        args = self.__parser().parse_args()
-        self.__verbose = args.verbose
-
-        direction = _detect_direction(args.src_path, args.dst_path)
-        self.set_direction_env(direction, args.src_path, args.dst_path)
-
-        self.verbose(f'direction: {direction.name}')
-        self.verbose(f'container: {self.__container}')
-        self.verbose(f'source: {self.__src_path}')
-        self.verbose(f'destination: {self.__dst_path}')
-        self.verbose(f'arguments: {args.arguments}')
-
-        result = self.run(direction, args.arguments, args.recursive)
-
+        args = self.parser().parse_args()
+        self.log(args.verbosity)
+        result = CopyFacade(args.src, args.dst,
+                            args.arguments, args.recursive).run()
         sys.exit(result)
 
-    def run(self, direction: Direction, kubectl_args: str,
-            recursive: bool) -> bool:
-        """ Run file transfer
-
-        Args:
-            direction (Direction): File transfer direction
-            kubectl_args (str): kubectl arguments
-            recursive (bool): Recursive or not
+    def parser(self) -> argparse.ArgumentParser:
+        """ Deal with argparse
 
         Returns:
-            bool: False on OK
+            argparse.ArgumentParser: argparse object
         """
-        copy = Copy(self.__container, self.__src_path, self.__dst_path,
-                    kubectl_args)
-
-        if direction == Direction.download and not recursive:
-            return copy.from_container_to_localhost()
-        if direction == Direction.upload and not recursive:
-            return copy.from_localhost_to_container()
-        if direction == Direction.download and recursive:
-            return copy.from_container_directory_to_localhost()
-        if direction == Direction.upload and recursive:
-            return copy.from_localhost_directory_to_container()
-
-        print('Invalid input.')
-        return True
-
-    def __parser(self) -> argparse.ArgumentParser:
         parser = argparse.ArgumentParser(
-            prog='kubectl-cp',
+            prog=self.__name,
             description=(
                 'An easy way to copy files from/to containers running on '
                 'Kubernetes'
@@ -119,11 +85,11 @@ class Main():
             ),
         )
         parser.add_argument(
-            'src_path',
+            'src',
             help='Source path'
         )
         parser.add_argument(
-            'dst_path',
+            'dst',
             help='Destination path'
         )
         parser.add_argument(
@@ -136,9 +102,14 @@ class Main():
             action='store_true'
         )
         parser.add_argument(
-            '-v', '--verbose',
-            help='Enable verbose output',
-            action='store_true'
+            '-v', '--verbosity',
+            type=str,
+            choices=['CRITICAL', 'ERROR', 'WARNING', 'INFO', 'DEBUG'],
+            default='ERROR',
+            help=(
+                'verbose mode, options: '
+                'CRITICAL, ERROR (default), WARNING, INFO, DEBUG'
+            )
         )
         parser.add_argument(
             '-V', '--version',
@@ -148,55 +119,107 @@ class Main():
         )
         return parser
 
-    def verbose(self, message: str):
-        """ Log message
+    def log(self, verbosity: str):
+        """ Start Log Borg
 
         Args:
-            message (str): Text message
+            verbosity (str): verbosity level
         """
-        if self.__verbose:
-            print(message)
+        Log().name = self.__name
+        Log().verbosity = verbosity
+        Log().start()
 
-    def set_direction_env(self, direction: Direction,
-                          src_path: str, dst_path: str):
+
+class CopyFacade:
+    """ Copy Facade class
+
+    Args:
+        src (str): Source path
+        dst (str): Destination path
+        kubectl_args (str): kubectl arguments
+        recursive (bool): Recursion
+    """
+
+    def __init__(self, src: str, dst: str, kubectl_args: str,
+                 recursive: bool):
+        self.__container: str
+        self.__src_path: str
+        self.__dst_path: str
+        self.__kubectl_args: str = kubectl_args
+        self.__recursive: bool = recursive
+        self.__direction: Direction = self.__detect_direction(src, dst)
+        self.set_direction_env(src, dst)
+
+    def run(self) -> bool:
+        """ Run file transfer
+
+        Returns:
+            bool: False on OK
+        """
+        copy = Copy(self.__container, self.__src_path, self.__dst_path,
+                    self.__kubectl_args)
+
+        if self.__direction == Direction.download and not self.__recursive:
+            return copy.from_container_to_localhost()
+        if self.__direction == Direction.upload and not self.__recursive:
+            return copy.from_localhost_to_container()
+        if self.__direction == Direction.download and self.__recursive:
+            return copy.from_container_directory_to_localhost()
+        if self.__direction == Direction.upload and self.__recursive:
+            return copy.from_localhost_directory_to_container()
+
+        log.error('Invalid input.')
+        return True
+
+    def set_direction_env(self, src: str, dst: str):
         """ Set transfer direction variables
 
         Args:
-            direction (Direction): File transfer direction
-            src_path (str): Source path
-            dst_path (str): Destination path
+            src (str): Source path
+            dst (str): Destination path
         """
-        if direction == Direction.download:
-            self.__container = _split_container_and_file(src_path)[0]
-            self.__src_path = _split_container_and_file(src_path)[1]
-            self.__dst_path = dst_path
-        elif direction == Direction.upload:
-            self.__container = _split_container_and_file(dst_path)[0]
-            self.__src_path = src_path
-            self.__dst_path = _split_container_and_file(dst_path)[1]
+        if self.__direction == Direction.download:
+            self.__container = self.__split_container_and_file(src)[0]
+            self.__src_path = self.__split_container_and_file(src)[1]
+            self.__dst_path = dst
+        elif self.__direction == Direction.upload:
+            self.__container = self.__split_container_and_file(dst)[0]
+            self.__src_path = src
+            self.__dst_path = self.__split_container_and_file(dst)[1]
+
+        log.info('direction: %s', self.__direction.name)
+        log.info('container: %s', self.__container)
+        log.info('source: %s', self.__src_path)
+        log.info('destination: %s', self.__dst_path)
+        log.info('arguments: %s', self.__kubectl_args)
+
+    def __detect_direction(self, src, dst) -> Direction:
+        if len(self.__split_container_and_file(src)) > 1:
+            return Direction.download
+        if len(self.__split_container_and_file(dst)) > 1:
+            return Direction.upload
+        return Direction.invalid
+
+    def __split_container_and_file(self, path: str) -> list:
+        return path.split(':', 1)
 
 
-class Copy():
+class Copy:
     """ Copy files from/to containers
 
     Args:
         container (str): Container name
-        src_path (str): Source file
-        dst_path (str): Destination file
+        src_path (str): Source path
+        dst_path (str): Destination path
         kubectl_args (str): kubectl arguments
     """
 
     def __init__(self, container: str, src_path: str, dst_path: str,
                  kubectl_args: str) -> None:
-        self.__verbose = False
         self.__container = container
         self.__src_path = src_path
         self.__dst_path = dst_path
         self.__kubectl_args = kubectl_args
-
-    def _verbose(self, message):
-        if self.__verbose:
-            print(message)
 
     def from_container_to_localhost(self) -> bool:
         """ Copy a file from container to localhost
@@ -207,15 +230,15 @@ class Copy():
                                         self.__kubectl_args):
             return True
 
-        self._verbose(f'Copying {self.__src_path}...')
+        log.info('Copying %s...', self.__src_path)
 
         if self.__dst_path == '.':
             self.__dst_path = os.path.basename(self.__src_path)
 
-        cmd = (f'{_kubectl_path()} exec -i {self.__kubectl_args} '
+        cmd = (f'{self.__kubectl_path()} exec -i {self.__kubectl_args} '
                f'-c {self.__container} '
                f'-- cat {self.__src_path}')
-        self._verbose(f'  Command: {cmd}')
+        log.debug('  Command: %s', cmd)
 
         file_type = FileSystem.unknown
         try:
@@ -226,10 +249,10 @@ class Copy():
             file_type = FileSystem.directory
 
         if file_type == FileSystem.file:
-            return _save_file(self.__dst_path, result.stdout)
+            return self.__save_file(self.__dst_path, result.stdout)
         if file_type == FileSystem.directory:
-            self._verbose(f'  Creating directory {self.__dst_path}...')
-            _create_directory(self.__dst_path)
+            log.debug('  Creating directory %s...', self.__dst_path)
+            self.__create_directory(self.__dst_path)
             return False
 
         return True
@@ -239,16 +262,16 @@ class Copy():
         Returns:
             bool: False on OK
         """
-        content = _read_file(self.__src_path)
+        content = self.__read_file(self.__src_path)
         if not content:
-            print(f'{self.__src_path}: file not found.')
+            log.error('%s: file not found.', self.__src_path)
             return True
 
-        cmd = (f'{_kubectl_path()} exec '
+        cmd = (f'{self.__kubectl_path()} exec '
                f'-i {self.__kubectl_args} '
                f'-c {self.__container} '
                f'-- sh -c "tee {self.__dst_path} > /dev/null"')
-        self._verbose(f'  Command: {cmd}')
+        log.debug('  Command: %s', cmd)
 
         result = subprocess.run(shlex.split(cmd), input=content,
                                 check=False, capture_output=False)
@@ -264,28 +287,28 @@ class Copy():
                                         self.__kubectl_args):
             return True
 
-        self._verbose('Fetching file list...')
-        cmd = (f'{_kubectl_path()} exec -i {self.__kubectl_args} '
+        log.info('Fetching file list...')
+        cmd = (f'{self.__kubectl_path()} exec -i {self.__kubectl_args} '
                f'-c {self.__container} '
                f'-- sh -c "find {self.__src_path}"')
-        self._verbose(f'  Command: {cmd}')
+        log.debug('  Command: %s', cmd)
         try:
             result = subprocess.run(shlex.split(cmd),
                                     check=True, capture_output=True)
         except subprocess.CalledProcessError:
-            print('  Failed to read directory')
+            log.critical('  Failed to read directory')
             return True
 
         files = result.stdout.decode().split("\n")
         files.insert(0, self.__src_path)
         files = [x for x in files if x != '']
 
-        dst_directories = _summarize_directory_structure(files)
+        dst_directories = self.__summarize_directory_structure(files)
         for i in dst_directories:
             relpath = os.path.relpath(i, os.path.dirname(self.__src_path))
-            _create_directory(os.path.join(self.__dst_path, relpath))
+            self.__create_directory(os.path.join(self.__dst_path, relpath))
 
-        self._verbose(files)
+        log.debug(files)
         for src_path in files:
             dst_path = os.path.join(
                 self.__dst_path,
@@ -302,25 +325,25 @@ class Copy():
         Returns:
             bool: False on OK
         """
-        self._verbose('Fetching file list...')
+        log.info('Fetching file list...')
         files_local, files_full_path = \
-            _list_local_directory_recursively(self.__src_path)
-        self._verbose(files_local)
+            self.__list_local_directory_recursively(self.__src_path)
+        log.debug(files_local)
 
-        self._verbose('Creating destination directory structure...')
-        dst_directories = _summarize_directory_structure(
-            _join_paths(self.__dst_path, files_local))
+        log.info('Creating destination directory structure...')
+        dst_directories = self.__summarize_directory_structure(
+            self.__join_paths(self.__dst_path, files_local))
 
         for dst_directory in dst_directories:
-            cmd = (f'{_kubectl_path()} exec -i {self.__kubectl_args} '
+            cmd = (f'{self.__kubectl_path()} exec -i {self.__kubectl_args} '
                    f'-c {self.__container} '
                    f'-- sh -c "mkdir -p {dst_directory}"')
-            self._verbose(f'  Command: {cmd}')
+            log.debug('  Command: %s', cmd)
             try:
                 subprocess.run(shlex.split(cmd),
                                check=True, capture_output=True)
             except subprocess.CalledProcessError:
-                print('  Failed to create directory')
+                log.critical('  Failed to create directory')
                 return True
 
         for file_name, src_path in zip(files_local, files_full_path):
@@ -338,136 +361,191 @@ class Copy():
         Returns:
             bool: True when path exists
         """
-        self._verbose('Checking if remote path exists...')
-        cmd = (f'{_kubectl_path()} exec -i {kubectl_args} '
+        log.debug('Checking if remote path exists...')
+        cmd = (f'{self.__kubectl_path()} exec -i {kubectl_args} '
                f'-c {container} '
                f'-- sh -c "[ -f {path} ] || [ -d {path} ]"')
-        self._verbose(f'  Command: {cmd}')
+        log.debug('  Command: %s', cmd)
         try:
             if subprocess.run(shlex.split(cmd), check=True,
                               capture_output=True).returncode == 0:
                 return True
             return False
         except subprocess.CalledProcessError:
-            print(f'  Not found: {path}')
+            log.error('  Not found: %s', path)
             return False
 
+    def __join_paths(self, base_path: str, files: list[str]) -> list[str]:
+        result: list[str] = []
+        for i in files:
+            result.append(os.path.join(base_path, i))
+        return result
 
-def _detect_direction(src_path, dst_path) -> Direction:
-    if len(_split_container_and_file(src_path)) > 1:
-        return Direction.download
-    if len(_split_container_and_file(dst_path)) > 1:
-        return Direction.upload
-    return Direction.invalid
+    def __list_local_directory_recursively(self, path: str) \
+            -> tuple[list[str], list[str]]:
+        """ List local directory recursively
 
+        Args:
+            path (str): Work directory
 
-def _kubectl_path():
-    possible_paths = [
-        '/snap/bin/kubectl',
-        '/usr/bin/kubectl',
-        '/usr/local/bin/kubectl',
-    ]
-    for path in possible_paths:
-        if os.path.isfile(path):
-            return path
-    sys.exit('kubectl: command not found')
+        Returns:
+            tuple[list, list]: Lists of files and with full path
+        """
+        file_names: list[str] = []
+        full_paths: list[str] = []
 
+        for dirpath, _, filenames in os.walk(path):
+            for f in filenames:
+                file_names.append(
+                    os.path.join(dirpath, f))
+                full_paths.append(
+                    os.path.abspath(os.path.join(dirpath, f)))
 
-def _create_directory(path: str) -> bool:
-    """ Create directory
+        return file_names, full_paths
 
-    Args:
-        dst_path (str): Directory name
+    def __read_file(self, file_path: str) -> bytes:
+        """ Read file content
 
-    Returns:
-        bool: False on OK
-    """
-    try:
-        os.makedirs(path)
+        Args:
+            file_path (str): File path
+
+        Returns:
+            bytes: File content
+            False: Error (i.e. file not found)
+        """
+        try:
+            with open(file_path, 'rb') as f:
+                content = f.read()
+            return content
+        except FileNotFoundError:
+            return False
+        except EnvironmentError:
+            return False
+
+    def __save_file(self, file_path: str, content: bytes) -> bool:
+        """ Save content to file
+
+        Args:
+            file_path (str): File path
+            content (bytes): Content
+
+        Returns:
+            bool: False on OK
+        """
+        try:
+            with open(file_path, 'wb') as f:
+                f.write(content)
+        except EnvironmentError:
+            return True
+
         return False
-    except FileExistsError:
-        return True
+
+    def __kubectl_path(self):
+        possible_paths = (
+            '/snap/bin/kubectl',
+            '/usr/bin/kubectl',
+            '/usr/local/bin/kubectl',
+        )
+        for path in possible_paths:
+            if os.path.isfile(path):
+                return path
+        sys.exit('kubectl: command not found')
+
+    def __create_directory(self, path: str) -> bool:
+        """ Create directory
+
+        Args:
+            dst_path (str): Directory name
+
+        Returns:
+            bool: False on OK
+        """
+        try:
+            os.makedirs(path)
+            return False
+        except FileExistsError:
+            return True
+
+    def __summarize_directory_structure(self, files: list[str]) -> set[str]:
+        result: list[str] = []
+        for i in files:
+            result.append(os.path.dirname(i))
+        return set(result)
 
 
-def _read_file(file_path: str) -> bytes:
-    """ Read file content
+class Log:
+    """ Log Borg pattern """
+    _shared_state = {}
+    name: str = 'Default log'
+    logger = logging.getLogger(name)
+    __verbosity: int = logging.WARNING  # example: logging.ERROR
 
-    Args:
-        file_path (str): File path
+    def __new__(cls):
+        inst = super().__new__(cls)
+        inst.__dict__ = cls._shared_state
+        return inst
 
-    Returns:
-        bytes: File content
-        False: Error (i.e. file not found)
-    """
-    try:
-        with open(file_path, 'rb') as f:
-            content = f.read()
-        return content
-    except FileNotFoundError:
-        return False
-    except EnvironmentError:
-        return False
+    def start(self) -> None:
+        """ Start the log system """
+        fmt = '%(levelname)s: %(message)s'
+        handler = logging.StreamHandler(sys.stdout)
+        handler.setFormatter(CustomFormatter(fmt))
+        self.logger.addHandler(handler)
 
+    @property
+    def verbosity(self) -> int:
+        """ verbosity getter function
 
-def _save_file(file_path: str, content: bytes) -> bool:
-    """ Save content to file
+        Returns:
+            int: verbosity level
+        """
+        return self.__verbosity
 
-    Args:
-        file_path (str): File path
-        content (bytes): Content
+    @verbosity.setter
+    def verbosity(self, level):
+        if level == 'DEBUG':
+            self.__verbosity = logging.DEBUG
+        elif level == 'INFO':
+            self.__verbosity = logging.INFO
+        elif level == 'WARNING':
+            self.__verbosity = logging.WARNING
+        elif level == 'ERROR':
+            self.__verbosity = logging.ERROR
+        elif level == 'CRITICAL':
+            self.__verbosity = logging.CRITICAL
+        else:
+            self.__verbosity = logging.ERROR
 
-    Returns:
-        bool: False on OK
-    """
-    try:
-        with open(file_path, 'wb') as f:
-            f.write(content)
-    except EnvironmentError:
-        return True
-
-    return False
-
-
-def _split_container_and_file(path: str) -> list:
-    return path.split(':', 1)
-
-
-def _list_local_directory_recursively(path: str) \
-        -> tuple[list[str], list[str]]:
-    """ List local directory recursively
-
-    Args:
-        path (str): Work directory
-
-    Returns:
-        tuple[list, list]: Lists of files and with full path
-    """
-    file_names: list[str] = []
-    full_paths: list[str] = []
-
-    for dirpath, _, filenames in os.walk(path):
-        for f in filenames:
-            file_names.append(
-                os.path.join(dirpath, f))
-            full_paths.append(
-                os.path.abspath(os.path.join(dirpath, f)))
-
-    return file_names, full_paths
+        self.logger.setLevel(self.__verbosity)
 
 
-def _join_paths(base_path: str, files: list[str]) -> list[str]:
-    result: list[str] = []
-    for i in files:
-        result.append(os.path.join(base_path, i))
-    return result
+class CustomFormatter(logging.Formatter):
+    """ Add colors to log """
+    grey = '\x1b[38;21m'
+    blue = '\x1b[38;5;39m'
+    yellow = '\x1b[38;5;226m'
+    red = '\x1b[38;5;196m'
+    bold_red = '\x1b[31;1m'
+    reset = '\x1b[0m'
+
+    def __init__(self, fmt):
+        super().__init__()
+        self.fmt = fmt
+        self.formats = {
+            logging.DEBUG: self.grey + self.fmt + self.reset,
+            logging.INFO: self.blue + self.fmt + self.reset,
+            logging.WARNING: self.yellow + self.fmt + self.reset,
+            logging.ERROR: self.red + self.fmt + self.reset,
+            logging.CRITICAL: self.bold_red + self.fmt + self.reset
+        }
+
+    def format(self, record):
+        log_fmt = self.formats.get(record.levelno)
+        formatter = logging.Formatter(log_fmt)
+        return formatter.format(record)
 
 
-def _summarize_directory_structure(files: list[str]) -> set[str]:
-    result: list[str] = []
-    for i in files:
-        result.append(os.path.dirname(i))
-    return set(result)
-
+log = Log().logger
 
 if __name__ == '__main__':
     Main()
