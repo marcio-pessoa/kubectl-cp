@@ -5,4 +5,6 @@ COPY kubectl-cp /usr/local/bin
 RUN apt update
 RUN apt install -y kubernetes-client
 
-CMD [ "/usr/local/bin/kubectl-cp", "--help" ]
+WORKDIR /usr/local/bin
+
+ENTRYPOINT ["./kubectl-cp"]
