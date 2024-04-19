@@ -35,7 +35,9 @@ kubectl-cp -a 'pod/example' -r my_dir container:/tmp/
 ### Using from Docker image
 
 ``` sh
-docker run -v /home/user/.kube/config:/root/.kube/config \
+docker run --rm
+  -v /home/user/.kube/config:/root/.kube/config \
+  -v /tmp/backup:/backup \
   ghcr.io/marcio-pessoa/kubectl-cp -a 'pod/example' \
-  container:/tmp/source_file.txt .
+  container:/tmp/source_file.txt /backup
 ```
