@@ -46,8 +46,8 @@ class FileSystem(Enum):
 class Main:
     """ Main class """
 
-    __version__ = '0.2.5-106'
-    __date__ = '2024-03-28'
+    __version__ = '0.2.6-106'
+    __date__ = '2024-04-19'
     __name = 'kubectl-cp'
 
     def __init__(self):
