@@ -46,8 +46,8 @@ class FileSystem(Enum):
 class Main:
     """ Main class """
 
-    __version__ = '0.2.6-106'
-    __date__ = '2024-04-19'
+    __version__ = '0.2.7-119'
+    __date__ = '2024-07-05'
     __name = 'kubectl-cp'
 
     def __init__(self):
@@ -341,9 +341,9 @@ class Copy:
             log.debug('  Command: %s', cmd)
             try:
                 subprocess.run(shlex.split(cmd),
-                               check=True, capture_output=True)
+                               check=True, capture_output=False)
             except subprocess.CalledProcessError:
-                log.critical('  Failed to create directory')
+                log.critical('Failed to create directory')
                 return True
 
         for file_name, src_path in zip(files_local, files_full_path):
@@ -378,7 +378,7 @@ class Copy:
     def __join_paths(self, base_path: str, files: list[str]) -> list[str]:
         result: list[str] = []
         for i in files:
-            result.append(os.path.join(base_path, i))
+            result.append(os.path.normpath(f'{base_path}{i}'))
         return result
 
     def __list_local_directory_recursively(self, path: str) \
